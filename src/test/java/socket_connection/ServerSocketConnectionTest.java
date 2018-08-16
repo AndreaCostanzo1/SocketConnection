@@ -339,7 +339,8 @@ class ServerSocketConnectionTest {
         addServerToList(server);
 
         //check server is running
-        assertEquals(Thread.State.RUNNABLE, server.getState());
+        await("Avoid eventual time waiting due to delay").atMost(200, TimeUnit.MILLISECONDS )
+                .untilAsserted(()->assertEquals(Thread.State.RUNNABLE,server.getState()));
         List<SocketConnection> openedConnections= new ArrayList<>();
         openedConnections.add(new SocketConnection(InetAddress.getLoopbackAddress().getHostAddress(), localPort));
         openedConnections.add(new SocketConnection(InetAddress.getLoopbackAddress().getHostAddress(), localPort));
@@ -353,7 +354,7 @@ class ServerSocketConnectionTest {
         //Now server is shut down.
         server.shutdown();
         await("Waiting for thread to close properly").atMost(200, TimeUnit.MILLISECONDS )
-                .until(server::getState,is(Thread.State.TERMINATED));
+                .untilAsserted(()->assertEquals(server.getState(),Thread.State.TERMINATED));
 
         /*  connection previous opened should be now closed:
          *      so if a sent a message to server an
@@ -377,14 +378,18 @@ class ServerSocketConnectionTest {
     @Test
     void portNotBindAfterShutDown() throws InvocationTargetException, NoDefaultConstructorException, InstantiationException, IllegalAccessException, IOException, ServerShutdownException {
         final int localPort=getPort();
-        ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
-        assertEquals(Thread.State.RUNNABLE, server.getState());
+        final ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
+        await("Avoid eventual time waiting due to delay").atMost(200, TimeUnit.MILLISECONDS )
+                .untilAsserted(()->assertEquals(Thread.State.RUNNABLE,server.getState()));
         //now server is shut down.
         server.shutdown();
         await("Waiting for thread to shut down properly").atMost(200, TimeUnit.MILLISECONDS )
-                .until(server::getState,is(Thread.State.TERMINATED));
-        server= new ServerSocketConnection(localPort, ProperAgent.class);
-        assertEquals(Thread.State.RUNNABLE, server.getState());
+                .untilAsserted(()->assertEquals(Thread.State.TERMINATED,server.getState()));
+        //try to open a new server on the same port
+        final ServerSocketConnection server2= new ServerSocketConnection(localPort, ProperAgent.class);
+        addServerToList(server2);
+        await("Avoid eventual time waiting due to delay").atMost(200, TimeUnit.MILLISECONDS )
+                .untilAsserted(()->assertEquals(Thread.State.RUNNABLE,server2.getState()));
     }
 
     /**
@@ -393,9 +398,10 @@ class ServerSocketConnectionTest {
     @Test
     void cannotShutDownServerTwice() throws ServerShutdownException, InvocationTargetException, NoDefaultConstructorException, InstantiationException, IllegalAccessException, IOException {
         final int localPort=getPort();
-        ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
+        final ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
         addServerToList(server);
-        assertEquals(Thread.State.RUNNABLE, server.getState());
+        await("Avoid eventual time waiting due to delay").atMost(200, TimeUnit.MILLISECONDS )
+                .untilAsserted(()->assertEquals(Thread.State.RUNNABLE,server.getState()));
         //now server is shut down.
         server.shutdown();
         await("Waiting for thread to close properly").atMost(200, TimeUnit.MILLISECONDS )
@@ -412,7 +418,8 @@ class ServerSocketConnectionTest {
         final int localPort=getPort();
         ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
         addServerToList(server);
-        assertEquals(Thread.State.RUNNABLE, server.getState());
+        await("Avoid eventual time waiting due to delay").atMost(200, TimeUnit.MILLISECONDS )
+                .untilAsserted(()->assertEquals(Thread.State.RUNNABLE,server.getState()));
         server.close();
         server.shutdown();
         assertEquals(ServerSocketConnection.Status.SHUT_DOWN, server.getStatus());
@@ -428,9 +435,10 @@ class ServerSocketConnectionTest {
         final int localPort=getPort();
         ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
         addServerToList(server);
-        assertEquals(Thread.State.RUNNABLE, server.getState());
+        await("Avoid eventual time waiting due to delay").atMost(200, TimeUnit.MILLISECONDS )
+                .untilAsserted(()->assertEquals(Thread.State.RUNNABLE,server.getState()));
         server.close();
-        await().atLeast(10,TimeUnit.MILLISECONDS);
+        await().atMost(10,TimeUnit.MILLISECONDS);
         server.shutdown();
         assertEquals(ServerSocketConnection.Status.SHUT_DOWN, server.getStatus());
         await("Waiting for thread to shut down properly").atMost(500, TimeUnit.MILLISECONDS )
@@ -445,9 +453,10 @@ class ServerSocketConnectionTest {
         final int localPort=getPort();
         ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
         addServerToList(server);
-        assertEquals(Thread.State.RUNNABLE, server.getState());
+        await("Avoid eventual time waiting due to delay").atMost(200, TimeUnit.MILLISECONDS )
+                .untilAsserted(()->assertEquals(Thread.State.RUNNABLE,server.getState()));
         server.close();
-        await().atLeast(50,TimeUnit.MILLISECONDS);
+        await().atMost(50,TimeUnit.MILLISECONDS);
         server.shutdown();
         assertEquals(ServerSocketConnection.Status.SHUT_DOWN, server.getStatus());
         await("Waiting for thread to shut down properly").atMost(500, TimeUnit.MILLISECONDS )
@@ -462,9 +471,10 @@ class ServerSocketConnectionTest {
         final int localPort=getPort();
         ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
         addServerToList(server);
-        assertEquals(Thread.State.RUNNABLE, server.getState());
+        await("Avoid eventual time waiting due to delay").atMost(200, TimeUnit.MILLISECONDS )
+                .untilAsserted(()->assertEquals(Thread.State.RUNNABLE,server.getState()));
         server.close();
-        await().atLeast(300,TimeUnit.MILLISECONDS);
+        await().atMost(300,TimeUnit.MILLISECONDS);
         server.shutdown();
         assertEquals(ServerSocketConnection.Status.SHUT_DOWN, server.getStatus());
         await("Waiting for thread to shut down properly").atMost(500, TimeUnit.MILLISECONDS )
@@ -479,7 +489,8 @@ class ServerSocketConnectionTest {
         final int localPort=getPort();
         ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
         addServerToList(server);
-        assertEquals(Thread.State.RUNNABLE, server.getState());
+        await("Avoid eventual time waiting due to delay").atMost(200, TimeUnit.MILLISECONDS )
+                .untilAsserted(()->assertEquals(Thread.State.RUNNABLE,server.getState()));
         server.close();
         await("Waiting for thread to close properly").atMost(500, TimeUnit.MILLISECONDS )
                 .until(server::getState,is(Thread.State.WAITING));

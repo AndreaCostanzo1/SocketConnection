@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.CoreMatchers.is;
@@ -188,6 +189,24 @@ class ServerSocketConnectionTest {
     private static Lock listLock=new ReentrantLock();
     private static List<ServerSocketConnection> servers=new ArrayList<>();
 
+    /**
+     * This method is used to ensure that all opened servers are shut down
+     */
+    @AfterAll
+    static void shutdownAll(){
+        listLock.lock();
+        servers.stream().filter(server->!server.getStatus().equals(ServerSocketConnection.Status.SHUT_DOWN))
+                .collect(Collectors.toList())
+                .forEach(server-> {
+                    try {
+                        server.shutdown();
+                    } catch (ServerShutdownException e) {
+                        e.printStackTrace();
+                    }
+                });
+
+    }
+
     //****************************************************************************************
     //
     //                         TEST: Constructors
@@ -203,7 +222,8 @@ class ServerSocketConnectionTest {
         final int localPort=getPort();
         ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
         addServerToList(server);
-        assertEquals(Thread.State.RUNNABLE,server.getState());
+        await("Avoid eventual time wait").atMost(200, TimeUnit.MILLISECONDS )
+                .untilAsserted(()->assertEquals(server.getState(),Thread.State.RUNNABLE));
     }
 
     /**
@@ -215,7 +235,8 @@ class ServerSocketConnectionTest {
         final int localPort=getPort();
         ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class,false);
         addServerToList(server);
-        assertEquals(Thread.State.RUNNABLE,server.getState());
+        await("Avoid eventual time wait").atMost(200, TimeUnit.MILLISECONDS )
+                .untilAsserted(()->assertEquals(server.getState(),Thread.State.RUNNABLE));
     }
 
     /**
@@ -229,7 +250,8 @@ class ServerSocketConnectionTest {
         addServerToList(server);
         assertEquals(Thread.State.NEW,server.getState());
         server.start();
-        assertEquals(Thread.State.RUNNABLE, server.getState());
+        await("Avoid eventual time wait").atMost(200, TimeUnit.MILLISECONDS )
+                .untilAsserted(()->assertEquals(server.getState(),Thread.State.RUNNABLE));
     }
 
     /**
@@ -325,10 +347,8 @@ class ServerSocketConnectionTest {
         //check all connections are opened
         openedConnections.forEach(connection ->
                 await("Waiting for connection to be ready")
-                        .atMost(200, TimeUnit.MILLISECONDS)
-                        .untilAsserted(
-                                ()->assertTrue(connection::isReady)
-                        ));
+                        .atMost(300, TimeUnit.MILLISECONDS)
+                        .until(connection::isReady, is(true)));
 
         //Now server is shut down.
         server.shutdown();
@@ -342,9 +362,7 @@ class ServerSocketConnectionTest {
         openedConnections.forEach(connection ->
                 await("Waiting for connection to close")
                         .atMost(500, TimeUnit.MILLISECONDS)
-                        .untilAsserted(
-                                ()->assertFalse(connection::isConnected)
-                        ));
+                        .until(connection::isConnected,is(false)));
 
         //The server is down so I can't open a connection anymore.
         assertThrows(FailedToConnectException.class,
@@ -363,7 +381,7 @@ class ServerSocketConnectionTest {
         assertEquals(Thread.State.RUNNABLE, server.getState());
         //now server is shut down.
         server.shutdown();
-        await("Waiting for thread to close properly").atMost(200, TimeUnit.MILLISECONDS )
+        await("Waiting for thread to shut down properly").atMost(200, TimeUnit.MILLISECONDS )
                 .until(server::getState,is(Thread.State.TERMINATED));
         server= new ServerSocketConnection(localPort, ProperAgent.class);
         assertEquals(Thread.State.RUNNABLE, server.getState());
@@ -381,13 +399,32 @@ class ServerSocketConnectionTest {
         //now server is shut down.
         server.shutdown();
         await("Waiting for thread to close properly").atMost(200, TimeUnit.MILLISECONDS )
-                .until(server::getState,is(Thread.State.TERMINATED));
+                .untilAsserted(()->assertEquals(server.getState(),Thread.State.TERMINATED));
         assertThrows(ServerShutdownException.class,
                 server::shutdown);
     }
 
+    /**
+     * This test ensure that a server closed from at least 50ms shut down without problems
+     */
     @Test
-    void shutDownAClosedServer() throws InvocationTargetException, NoDefaultConstructorException, InstantiationException, IllegalAccessException, IOException, ServerShutdownException, ServerAlreadyClosedException {
+    void shutDownAJUSTClosedServer() throws InvocationTargetException, NoDefaultConstructorException, InstantiationException, IllegalAccessException, IOException, ServerShutdownException, ServerAlreadyClosedException {
+        final int localPort=getPort();
+        ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
+        addServerToList(server);
+        assertEquals(Thread.State.RUNNABLE, server.getState());
+        server.close();
+        server.shutdown();
+        assertEquals(ServerSocketConnection.Status.SHUT_DOWN, server.getStatus());
+        await("Waiting for thread to shut down properly").atMost(500, TimeUnit.MILLISECONDS )
+                .until(server::getState,is(Thread.State.TERMINATED));
+    }
+
+    /**
+     * This test ensure that a server closed from at least 10ms shut down without problems
+     */
+    @Test
+    void shutDownAClosedServerFromMAX10MS() throws InvocationTargetException, NoDefaultConstructorException, InstantiationException, IllegalAccessException, IOException, ServerShutdownException, ServerAlreadyClosedException {
         final int localPort=getPort();
         ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
         addServerToList(server);
@@ -396,10 +433,62 @@ class ServerSocketConnectionTest {
         await().atLeast(10,TimeUnit.MILLISECONDS);
         server.shutdown();
         assertEquals(ServerSocketConnection.Status.SHUT_DOWN, server.getStatus());
-        await("Waiting for thread to close properly").atMost(500, TimeUnit.MILLISECONDS )
+        await("Waiting for thread to shut down properly").atMost(500, TimeUnit.MILLISECONDS )
                 .until(server::getState,is(Thread.State.TERMINATED));
     }
 
+    /**
+     * This test ensure that a server closed from at least 50ms shut down without problems
+     */
+    @Test
+    void shutDownAClosedServerFromMAX50MS() throws InvocationTargetException, NoDefaultConstructorException, InstantiationException, IllegalAccessException, IOException, ServerShutdownException, ServerAlreadyClosedException {
+        final int localPort=getPort();
+        ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
+        addServerToList(server);
+        assertEquals(Thread.State.RUNNABLE, server.getState());
+        server.close();
+        await().atLeast(50,TimeUnit.MILLISECONDS);
+        server.shutdown();
+        assertEquals(ServerSocketConnection.Status.SHUT_DOWN, server.getStatus());
+        await("Waiting for thread to shut down properly").atMost(500, TimeUnit.MILLISECONDS )
+                .until(server::getState,is(Thread.State.TERMINATED));
+    }
+
+    /**
+     * This test ensure that a server closed from at least 300ms shut down without problems
+     */
+    @Test
+    void shutDownAClosedServerFromMAX300MS() throws InvocationTargetException, NoDefaultConstructorException, InstantiationException, IllegalAccessException, IOException, ServerShutdownException, ServerAlreadyClosedException {
+        final int localPort=getPort();
+        ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
+        addServerToList(server);
+        assertEquals(Thread.State.RUNNABLE, server.getState());
+        server.close();
+        await().atLeast(300,TimeUnit.MILLISECONDS);
+        server.shutdown();
+        assertEquals(ServerSocketConnection.Status.SHUT_DOWN, server.getStatus());
+        await("Waiting for thread to shut down properly").atMost(500, TimeUnit.MILLISECONDS )
+                .until(server::getState,is(Thread.State.TERMINATED));
+    }
+
+    /**
+     * This test ensure that a server surely closed shut down without problems
+     */
+    @Test
+    void shutDownASurelyClosed() throws InvocationTargetException, NoDefaultConstructorException, InstantiationException, IllegalAccessException, IOException, ServerShutdownException, ServerAlreadyClosedException {
+        final int localPort=getPort();
+        ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
+        addServerToList(server);
+        assertEquals(Thread.State.RUNNABLE, server.getState());
+        server.close();
+        await("Waiting for thread to close properly").atMost(500, TimeUnit.MILLISECONDS )
+                .until(server::getState,is(Thread.State.WAITING));
+        assertEquals(ServerSocketConnection.Status.CLOSED, server.getStatus());
+        server.shutdown();
+        assertEquals(ServerSocketConnection.Status.SHUT_DOWN, server.getStatus());
+        await("Waiting for thread to shut down properly").atMost(500, TimeUnit.MILLISECONDS )
+                .until(server::getState,is(Thread.State.TERMINATED));
+    }
     //****************************************************************************************
     //
     //                         TEST: void close()
@@ -413,7 +502,7 @@ class ServerSocketConnectionTest {
      * -> new connections can't be opened.
      */
     @Test
-    void serverClosedProperly() throws InvocationTargetException, NoDefaultConstructorException, InstantiationException, IllegalAccessException, IOException, ServerAlreadyClosedException, ServerShutdownException, FailedToConnectException, UnreachableHostException {
+    void serverClosedProperly() throws InvocationTargetException, NoDefaultConstructorException, InstantiationException, IllegalAccessException, IOException, ServerAlreadyClosedException, ServerShutdownException, FailedToConnectException{
         final int localPort=getPort();
         ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
         //opening a connection before server.close command.

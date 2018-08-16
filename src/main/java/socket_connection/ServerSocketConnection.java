@@ -130,8 +130,6 @@ public class ServerSocketConnection extends Thread {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-        availableConnectionsLock.lock();
-        availableConnectionsLock.unlock();
     }
 
 
@@ -289,7 +287,7 @@ public class ServerSocketConnection extends Thread {
             shutdown=true;
             serverStatusLock.unlock();
         } else{
-            serverStatusLock.lock();
+            serverStatusLock.unlock();
             throw new ServerShutdownException();
         }
 
@@ -329,6 +327,7 @@ public class ServerSocketConnection extends Thread {
         serverStatusLock.lock();
         Optional<ServerShutdownException> shutdownNotification=
                 Optional.ofNullable(shutdown ? new ServerShutdownException() : null);
+        serverStatusLock.unlock();
         if (shutdownNotification.isPresent()) throw shutdownNotification.get();
     }
 

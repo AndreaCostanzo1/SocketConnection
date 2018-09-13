@@ -3,6 +3,8 @@ package socket_connection;
 
 import socket_connection.socket_exceptions.UndefinedInputTypeException;
 
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -70,17 +72,21 @@ final class MessageHandler {
      * @param connection is the connection who requested to compute an input
      * @param input to be computed
      * @exception UndefinedInputTypeException thrown if the input isn't a data nor a defined-type message
+     * @exception socket_connection.socket_exceptions.BadSetupException look at:
+     * {@link InputDecoder#handleHelloMessage(SocketConnection)}
+     * {@link InputDecoder#handleServerIsReadyMessage(SocketConnection)}
      */
     private static void handleOthersInputs(SocketConnection connection, String input) {
         Optional<DecodingFunction<SocketConnection>> decodingFunction= Optional.ofNullable(INPUT_TYPES.getOrDefault(input, null));
         decodingFunction.ifPresentOrElse(
-                function->function.run(connection),()->{throw new UndefinedInputTypeException();
+                function->function.run(connection), /*if present*/
+                ()->{throw new UndefinedInputTypeException(); /*if not present*/
                 });
     }
 
     /**
      * @param string to be computed
-     * @return a String marked as "DATA TYPE". If this string is sent to another host
+     * @return a string marked as "DATA TYPE". If this string is sent to another host
      * it will be valuated as a data message.
      */
     static String computeOutput(String string){
@@ -92,7 +98,7 @@ final class MessageHandler {
 
     /**
      * @param integer to be computed
-     * @return a String marked as "DATA TYPE". If this string is sent to another host
+     * @return a string marked as "DATA TYPE". If this string is sent to another host
      * it will be valuated as a data message.
      */
     static String computeOutput(int integer){
@@ -134,10 +140,18 @@ final class MessageHandler {
         return PING_MESSAGE;
     }
 
+    /**
+     * Getter for helloMessage
+     * @return helloMessage
+     */
     static String getHelloMessage() {
         return HELLO_MESSAGE;
     }
 
+    /**
+     * Getter for serverIsReadyMessage
+     * @return serverIsReadyMessage
+     */
     static String getServerIsReadyMessage() {
         return SERVER_IS_READY_MESSAGE;
     }

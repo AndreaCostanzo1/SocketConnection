@@ -1,11 +1,16 @@
 package socket_connection;
 
 import org.junit.jupiter.api.Test;
+import socket_connection.socket_exceptions.BadSetupException;
 import socket_connection.socket_exceptions.UndefinedInputTypeException;
 import socket_connection.socket_exceptions.UnreachableHostException;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.BiConsumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -13,6 +18,10 @@ class SocketCommTemplate extends SocketConnection{
     SocketCommTemplate(){
         super();
         super.setToReady();
+    }
+
+    @Override
+    void resetTTL(){
     }
 }
 
@@ -88,6 +97,16 @@ class MessageHandlerTest {
         assertFalse(MessageHandler.getInputIsDataType().test(s));
     }
 
+    /**
+     * This test assert that every message type declared isn't null
+     */
+    @Test
+    void notNullMessages(){
+        assertNotNull(MessageHandler.getDataTag());
+        assertNotNull(MessageHandler.getPingMessage());
+        assertNotNull(MessageHandler.getHelloMessage());
+        assertNotNull(MessageHandler.getServerIsReadyMessage());
+    }
     //****************************************************************************************
     //
     //                         TEST: String computeOutput(String string)
@@ -146,11 +165,6 @@ class MessageHandlerTest {
         assertEquals(message,elaboratedMessage);
     }
 
-    @Test
-    void checkNonDataDefinedTypeMessagesComputation(){
-
-    }
-
     /**
      * This test assert that computing a NON-DEFINED TYPE MESSAGE cause a thrown of a
      * UndefinedInputTypeException
@@ -161,6 +175,19 @@ class MessageHandlerTest {
         SocketConnection mockSocket= new SocketCommTemplate();
         assertThrows(UndefinedInputTypeException.class,
                 ()->MessageHandler.computeInput(mockSocket,undefinedMessage));
+    }
+
+    /**
+     * This test check that defined message type are computed correctly.
+     */
+    @Test
+    void checkCorrectComputationNonDataTypeDefinedMessages(){
+        Map<String,SocketConnection> messagesToTest= new HashMap<>();
+        messagesToTest.put(MessageHandler.getPingMessage(), new SocketCommTemplate());
+        messagesToTest.put(MessageHandler.getHelloMessage(), new SocketCommTemplate());
+        messagesToTest.put(MessageHandler.getServerIsReadyMessage(), new SocketCommTemplate());
+        messagesToTest.keySet().forEach(message->assertFalse(MessageHandler.getInputIsDataType().test(message)));
+        messagesToTest.forEach((message,client)->assertNoExceptionThrown(MessageHandler::computeInput,BadSetupException.class).accept(client, message));
     }
 
     //---------------------------------------------------------------------------------------
@@ -181,4 +208,25 @@ class MessageHandlerTest {
             throw e.getCause();
         }
     }
+
+
+    /**
+     * This method check if the passed consumer throws an exception.
+     * @param filterException avoid throwing of the exception passed.
+     */
+    @SuppressWarnings("all")
+    private <T,R, E extends Exception> BiConsumer<T,R> assertNoExceptionThrown(BiConsumer<T, R> methodToCheck, Class<E> filterException) {
+        return (i, j) -> {
+            try{
+                methodToCheck.accept(i, j);
+            }catch (Exception e){
+                try{
+                    filterException.cast(e);
+                } catch (ClassCastException e1){
+                    throw e;
+                }
+            }
+        };
+    }
+
 }

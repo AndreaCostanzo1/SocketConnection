@@ -1,4 +1,4 @@
 package socket_connection.socket_exceptions;
 
-public class BadServerSetupException extends RuntimeException {
+public class BadSetupException extends RuntimeException {
 }

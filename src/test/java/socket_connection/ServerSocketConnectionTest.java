@@ -1,7 +1,6 @@
 package socket_connection;
 
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import socket_connection.socket_exceptions.*;
 
@@ -49,13 +48,6 @@ class ProperAgent implements SocketUserAgentInterface{
     @Override
     public void setConnection(SocketConnection connection) {
         this.connection=connection;
-    }
-
-    @Override
-    public void notifySetUpError() {
-        errorLock.lock();
-        error=true;
-        errorLock.unlock();
     }
 
     static boolean getError() {
@@ -106,11 +98,6 @@ class NotProperConstructorAgent implements SocketUserAgentInterface{
     }
 
     @Override
-    public void notifySetUpError() {
-
-    }
-
-    @Override
     public void shutdown() {
 
     }
@@ -130,11 +117,6 @@ class NotAccessibleConstructorAgent implements SocketUserAgentInterface{
 
     @Override
     public void setConnection(SocketConnection connection) {
-
-    }
-
-    @Override
-    public void notifySetUpError() {
 
     }
 
@@ -164,11 +146,6 @@ class ThrowingExceptionAgent implements SocketUserAgentInterface{
     }
     @Override
     public void setConnection(SocketConnection connection) {
-
-    }
-
-    @Override
-    public void notifySetUpError() {
 
     }
 
@@ -405,7 +382,7 @@ class ServerSocketConnectionTest {
         //now server is shut down.
         server.shutdown();
         await("Waiting for thread to close properly").atMost(200, TimeUnit.MILLISECONDS )
-                .untilAsserted(()->assertEquals(server.getState(),Thread.State.TERMINATED));
+                .untilAsserted(()->assertEquals(Thread.State.TERMINATED,server.getState()));
         assertThrows(ServerShutdownException.class,
                 server::shutdown);
     }
@@ -471,7 +448,7 @@ class ServerSocketConnectionTest {
         final int localPort=getPort();
         ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
         addServerToList(server);
-        await("Avoid eventual time waiting due to delay").atMost(200, TimeUnit.MILLISECONDS )
+        await("Avoid eventual time waiting due to delay").atMost(400, TimeUnit.MILLISECONDS )
                 .untilAsserted(()->assertEquals(Thread.State.RUNNABLE,server.getState()));
         server.close();
         await().atMost(300,TimeUnit.MILLISECONDS);
@@ -500,6 +477,7 @@ class ServerSocketConnectionTest {
         await("Waiting for thread to shut down properly").atMost(500, TimeUnit.MILLISECONDS )
                 .until(server::getState,is(Thread.State.TERMINATED));
     }
+
     //****************************************************************************************
     //
     //                         TEST: void close()
@@ -662,7 +640,9 @@ class ServerSocketConnectionTest {
         return localPort;
     }
 
-
+    /**
+     * assert that the message read from the connection is equals to the string passed
+     */
     private void assertIsReceived(String message,SocketConnection connection) {
         try {
             assertEquals(message, connection.readUTF());

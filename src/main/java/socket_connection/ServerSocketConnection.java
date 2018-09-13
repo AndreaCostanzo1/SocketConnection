@@ -1,4 +1,6 @@
 package socket_connection;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 import socket_connection.socket_exceptions.*;
 
 import java.io.IOException;
@@ -12,18 +14,20 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.logging.Logger;
 
 public class ServerSocketConnection extends Thread {
 
     private int port;
     private Class<? extends SocketUserAgentInterface> agentClassType;
     private HashMap<SocketConnection,SocketUserAgentInterface> availableConnections;
-    private Lock serverStatusLock;
+    private ReentrantLock serverStatusLock;
     private Lock availableConnectionsLock;
     private ExecutorService threadsHandler;
     private Condition serverStatusCondition;
     private boolean shutdown;
     private boolean isClosed;
+    private Logger logger;
     private ServerSocket serverSocket;
     private static final long SLEEP_IN_MS = 20;
     private static long awaitExecutorInMS= 5000;
@@ -100,6 +104,7 @@ public class ServerSocketConnection extends Thread {
         isClosed=false;
         serverStatusCondition =serverStatusLock.newCondition();
         threadsHandler= Executors.newCachedThreadPool();
+        logger=Logger.getLogger(ServerSocketConnection.class.toString()+"%u");
     }
 
     /**
@@ -156,7 +161,7 @@ public class ServerSocketConnection extends Thread {
             runningAgent = agentClassType.getConstructor().newInstance();
             setupRunningAgent(runningAgent);
         } catch (NoSuchMethodException |InstantiationException | IllegalAccessException |InvocationTargetException e) {
-            throw new BadServerSetupException();
+            throw new BadSetupException();
         }
     }
 
@@ -169,11 +174,11 @@ public class ServerSocketConnection extends Thread {
         try {
             Socket client=serverSocket.accept();
             setup(client, runningAgent);
+            logger.finest("Client connected");
         } catch (IOException e) {
             handleThrown();
         } catch (FailedToConnectException e) {
-            runningAgent.notifySetUpError();
-            new Thread(runningAgent).start();
+            logger.fine("Client disconnected before ending setup phase");
         }
     }
 
@@ -183,7 +188,7 @@ public class ServerSocketConnection extends Thread {
      * @param runningAgent to setup
      * @throws FailedToConnectException if can't connect anymore to the connection just accepted
      */
-    private void setup(Socket client, SocketUserAgentInterface runningAgent) throws FailedToConnectException {
+    private void setup(@NotNull Socket client,@NotNull SocketUserAgentInterface runningAgent) throws FailedToConnectException {
         SocketConnection socket=new SocketConnection(client,this);
         availableConnectionsLock.lock();
         availableConnections.put(socket,runningAgent);
@@ -195,7 +200,7 @@ public class ServerSocketConnection extends Thread {
     /**
      * Put server in a wait status. This is launched when serverSocket is temporary
      * closed.
-     * @exception BadServerSetupException is launched when serverSocket launch a IOException
+     * @exception BadSetupException is launched when serverSocket launch a IOException
      * without being closed with close or shutdown method.
      */
     private void handleThrown() {
@@ -204,15 +209,18 @@ public class ServerSocketConnection extends Thread {
             closeServer();
         }else if(!shutdown){
             serverStatusLock.unlock();
-            throw new BadServerSetupException();
+            throw new BadSetupException();
         }
         serverStatusLock.unlock();
     }
 
     /**
      * keep server closed until a open or a shutdown command is received.
+     * @exception BadSetupException is launched if this method is used
+     * without acquire a lock on serverStatusLock
      */
     private void closeServer() {
+        if(!serverStatusLock.isHeldByCurrentThread()) throw new BadSetupException();
         while (isClosed&&!shutdown){
             try {
                 serverStatusCondition.await();
@@ -228,7 +236,7 @@ public class ServerSocketConnection extends Thread {
      * people connected to server remain connected.
      * @throws ServerAlreadyClosedException if server is already closed
      * @throws ServerShutdownException if server is shutdown
-     * @exception BadServerSetupException is launched just if there's a severe error due
+     * @exception BadSetupException is launched just if there's a severe error due
      * to a bad programming phase.
      */
     @SuppressWarnings("WeakerAccess")
@@ -251,7 +259,7 @@ public class ServerSocketConnection extends Thread {
      * are accepted again.
      * @throws ServerAlreadyOpenedException if server is already opened
      * @throws ServerShutdownException if server is shutdown
-     * @exception BadServerSetupException is launched just if there's a severe error due
+     * @exception BadSetupException is launched just if there's a severe error due
      * to a bad programming phase.
      * NOTE: if an application reserve the passed port the exception is launched.
      */
@@ -275,7 +283,7 @@ public class ServerSocketConnection extends Thread {
      * After using this setup no one can connect anymore
      * and all open connections will be closed.
      * @throws ServerShutdownException if server is already closed
-     * @exception BadServerSetupException is launched just if there's a severe error due
+     * @exception BadSetupException is launched just if there's a severe error due
      * to a bad programming phase.
      */
     @SuppressWarnings("WeakerAccess")
@@ -285,6 +293,7 @@ public class ServerSocketConnection extends Thread {
             this.interrupt();
             closeServerSocket();
             shutdown=true;
+            isClosed=false;
             serverStatusLock.unlock();
         } else{
             serverStatusLock.unlock();
@@ -295,27 +304,27 @@ public class ServerSocketConnection extends Thread {
 
     /**
      * close server socket
-     * @exception BadServerSetupException is launched just if there's a severe error due
+     * @exception BadSetupException is launched just if there's a severe error due
      * to a bad programming phase.
      */
     private void closeServerSocket(){
         try {
             serverSocket.close();
         } catch (IOException e) {
-            throw new BadServerSetupException();
+            throw new BadSetupException();
         }
     }
 
     /**
      * close server socket
-     * @exception BadServerSetupException is launched just if there's a severe error due
+     * @exception BadSetupException is launched just if there's a severe error due
      * to a bad programming phase.
      */
     private void openServerSocket() {
         try{
             serverSocket= new ServerSocket(port);
         } catch (IOException e) {
-            throw new BadServerSetupException();
+            throw new BadSetupException();
         }
     }
 
@@ -342,11 +351,11 @@ public class ServerSocketConnection extends Thread {
     /**
      * Remove the connection passed from connections hash map
      * @param connection to be removed
-     * @exception BadServerSetupException if the connection isn't in the hash map
+     * @exception BadSetupException if the connection isn't in the hash map
      */
     private void removeConnection(SocketConnection connection) {
         availableConnectionsLock.lock();
-        if(!Optional.ofNullable(availableConnections.remove(connection)).isPresent()) throw new BadServerSetupException();
+        if(!Optional.ofNullable(availableConnections.remove(connection)).isPresent()) throw new BadSetupException();
         availableConnectionsLock.unlock();
     }
 
@@ -354,17 +363,38 @@ public class ServerSocketConnection extends Thread {
      * This method is used to see if server is running
      * @return true if the server is running, false if the server is shut down or still not started
      */
-    @SuppressWarnings("WeakerAccess")
+    @SuppressWarnings("WeakerAccess") @Contract(pure = true)
     public Status getStatus() {
         if(this.getState().equals(Thread.State.NEW)) return Status.WAITING_LAUNCH;
         try {
             checkIfShutDown();
-            serverStatusLock.lock();
-            boolean closed=isClosed;
-            serverStatusLock.unlock();
-            return closed ? Status.CLOSED : Status.RUNNING;
+            return isClosed() ?
+                    Status.CLOSED : Status.RUNNING;
         } catch (ServerShutdownException e) {
             return Status.SHUT_DOWN;
         }
     }
+
+    /**
+     * This method is used to see if server is running
+     * @return true if the server is closed, false if it's not
+     */
+    private boolean isClosed(){
+        serverStatusLock.lock();
+        boolean closed=isClosed;
+        serverStatusLock.unlock();
+        return closed;
+    }
+
+
+//    /**
+//     * This override of the interrupt method ensure that
+//     * serverSocketConnection can't be interrupted.
+//     * To shutDown properly the server use {@link #shutdown()}
+//     * @throws InvalidRequestException if called.
+//     */
+//    @Override @Contract("->fail")
+//    public void interrupt(){
+//        throw new InvalidRequestException();
+//    }
 }

@@ -385,16 +385,4 @@ public class ServerSocketConnection extends Thread {
         serverStatusLock.unlock();
         return closed;
     }
-
-
-//    /**
-//     * This override of the interrupt method ensure that
-//     * serverSocketConnection can't be interrupted.
-//     * To shutDown properly the server use {@link #shutdown()}
-//     * @throws InvalidRequestException if called.
-//     */
-//    @Override @Contract("->fail")
-//    public void interrupt(){
-//        throw new InvalidRequestException();
-//    }
 }

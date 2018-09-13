@@ -19,7 +19,8 @@ public class SocketConnection extends Thread{
     private ServerSocketConnection handlingServer;
     private DataInputStream inputStream;
     private DataOutputStream outputStream;
-    private SynchronizedDataBuffer buffer;
+    private SynchronizedDataBuffer synchronizedBuffer;
+    private ConnectionTimer timer;
     private boolean shutdown;
     private boolean ready;
     private boolean serverSide;
@@ -29,15 +30,28 @@ public class SocketConnection extends Thread{
 
     private static final long DELAY_IN_MS = 200;
 
+    /**
+     * Package-private constructor: this is used from others constructors
+     * to initialize some fields.
+     */
     SocketConnection(){
-        this.buffer=new SynchronizedDataBuffer();
+        this.synchronizedBuffer =new SynchronizedDataBuffer();
         this.statusLock =new ReentrantLock();
         this.statusCondition=statusLock.newCondition();
         this.outputStreamLock=new ReentrantLock();
+        this.timer=new ConnectionTimer(this);
         shutdown=false;
         ready=false;
     }
 
+    /**
+     * Package-private constructor for socket connection. This is called
+     * from a ServerSocketConnection to setup an incoming connection
+     * @param socket is the socket relative to the accepted connection
+     * @param server is the server handling the connection
+     * @throws FailedToConnectException if the connection is closed before
+     * the ending of the setup phase
+     */
     SocketConnection(Socket socket, ServerSocketConnection server) throws FailedToConnectException {
         this();
         this.serverSide=true;
@@ -47,6 +61,13 @@ public class SocketConnection extends Thread{
         this.start();
     }
 
+    /**
+     * Public constructor used to create a connection towards a server
+     * @param ip is the ip-address of the server
+     * @param port the port on which the server is listening
+     * @throws FailedToConnectException if the server is unreachable
+     */
+    @SuppressWarnings("WeakerAccess")
     public SocketConnection(String ip, int port) throws FailedToConnectException {
         this();
         serverSide=false;
@@ -59,6 +80,11 @@ public class SocketConnection extends Thread{
         this.start();
     }
 
+    /**
+     * This method is used to get the streams relative to
+     * the socket where the connection is opened
+     * @throws FailedToConnectException if the host/server is unreachable
+     */
     private void getStreams() throws FailedToConnectException {
         try {
             inputStream= new DataInputStream(socket.getInputStream());
@@ -68,6 +94,9 @@ public class SocketConnection extends Thread{
         }
     }
 
+    /**
+     * The thread started to handle the connection
+     */
     @Override
     public void run(){
         setupConnection();
@@ -75,14 +104,21 @@ public class SocketConnection extends Thread{
         tearDownConnection();
     }
 
+    /**
+     * This method is used to setup the connection
+     */
     private void setupConnection() {
         if(serverSide)
             handleServerSideSetup();
         else
             handleClientSideSetup();
-
+        timer.launch();
     }
 
+    /**
+     * This method is used to setup the connection
+     * if the socket represent the client side-connection
+     */
     private void handleClientSideSetup() {
         try{
             outputStream.writeUTF(MessageHandler.getHelloMessage());
@@ -92,6 +128,11 @@ public class SocketConnection extends Thread{
         }
     }
 
+    /**
+     * Leave the client in a "only-receiving" mode until the
+     * hello response is received
+     * @throws IOException if the server is unreachable
+     */
     private void waitForServerToBeReady() throws IOException {
         statusLock.lock();
         while (!ready){
@@ -107,7 +148,6 @@ public class SocketConnection extends Thread{
         try {
             MessageHandler.computeInput(this,input);
         } catch (UndefinedInputTypeException e){
-            statusLock.unlock();
             throw new UndefinedInputTypeException();
         }
     }
@@ -162,8 +202,11 @@ public class SocketConnection extends Thread{
     }
 
     private void computeInputs() {
+        int currentRead=0;
+        final int maxReads=50;
         try {
-            while (inputStream.available()>0){
+            while (inputStream.available()>0&&currentRead<maxReads){
+                currentRead++;
                 String string= inputStream.readUTF();
                 MessageHandler.computeInput(this,string);
             }
@@ -172,15 +215,22 @@ public class SocketConnection extends Thread{
         }
     }
 
+    @SuppressWarnings("WeakerAccess")
     public void shutdown() {
-        statusLock.lock();
-        shutdown=true;
-        this.interrupt();
-        statusLock.unlock();
+        shutdownConnection();
+        /*If we are client side isPresent will be false*/
         Optional<ServerSocketConnection> serverToNotify=Optional.ofNullable(handlingServer);
         serverToNotify.ifPresent(server->server.notifyDisconnection(this));
     }
 
+    private void shutdownConnection() {
+        statusLock.lock();
+        shutdown=true;
+        this.interrupt();
+        statusLock.unlock();
+    }
+
+    @SuppressWarnings("WeakerAccess")
     public void writeUTF(String string) throws UnreachableHostException {
         waitToBeReady();
         checkIfShutDown();
@@ -199,6 +249,7 @@ public class SocketConnection extends Thread{
         }
     }
 
+    @SuppressWarnings("WeakerAccess")
     public void writeInt(int number) throws UnreachableHostException {
         waitToBeReady();
         checkIfShutDown();
@@ -207,14 +258,15 @@ public class SocketConnection extends Thread{
     }
 
     /**
-     * @return a the first element of the buffer
+     * @return a the first element of the synchronizedBuffer
      * @throws UnreachableHostException when connection is down
      */
+    @SuppressWarnings("WeakerAccess")
     public String readUTF() throws UnreachableHostException{
         waitToBeReady();
         checkIfShutDown();
         try {
-            return buffer.popString();
+            return synchronizedBuffer.popString();
         } catch (ShutDownException e){
             throw new UnreachableHostException();
         }
@@ -222,32 +274,35 @@ public class SocketConnection extends Thread{
     }
 
     /**
-     * @return an integer from the buffer
+     * @return an integer from the synchronizedBuffer
      * @throws UnreachableHostException when connection is down
-     * @throws BadMessagesSequenceException when the first element of the buffer isn't an integer
+     * @throws BadMessagesSequenceException when the first element of the synchronizedBuffer isn't an integer
      */
+    @SuppressWarnings("WeakerAccess")
     public int readInt() throws UnreachableHostException, BadMessagesSequenceException {
         waitToBeReady();
         checkIfShutDown();
         try {
-            return buffer.popInt();
+            return synchronizedBuffer.popInt();
         } catch (ShutDownException e){
             throw new UnreachableHostException();
         }
     }
 
     void addToBuffer(String data) {
-        buffer.put(data);
+        synchronizedBuffer.put(data);
     }
 
     void resetTTL() {
-        // TODO: 09/08/2018
+        timer.resetTTL();
     }
 
-    public boolean isSomethingAvailable(){
-        return buffer.size()>0;
+    @SuppressWarnings("WeakerAccess")
+    public boolean isDataAvailable(){
+        return synchronizedBuffer.size()>0;
     }
 
+    @SuppressWarnings("WeakerAccess")
     public long getPing() throws UnreachableHostException {
         waitToBeReady();
         checkIfShutDown();
@@ -263,10 +318,12 @@ public class SocketConnection extends Thread{
 
     private void checkIfShutDown() throws UnreachableHostException {
         statusLock.lock();
-        if(shutdown) throw new UnreachableHostException();
+        boolean condition=shutdown;
         statusLock.unlock();
+        if(condition) throw new UnreachableHostException();
     }
 
+    @SuppressWarnings("WeakerAccess")
     public boolean isConnected() {
         statusLock.lock();
         boolean toReturn= !shutdown;

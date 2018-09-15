@@ -1,6 +1,13 @@
 package socket_connection;
 
-import socket_connection.socket_exceptions.*;
+import socket_connection.socket_exceptions.exceptions.BadMessagesSequenceException;
+import socket_connection.socket_exceptions.exceptions.FailedToConnectException;
+import socket_connection.socket_exceptions.exceptions.UnreachableHostException;
+import socket_connection.socket_exceptions.runtime_exceptions.NotifyServerException;
+import socket_connection.socket_exceptions.runtime_exceptions.ShutDownException;
+import socket_connection.socket_exceptions.runtime_exceptions.UndefinedInputTypeException;
+import socket_connection.tools.ConnectionTimer;
+import socket_connection.tools.SynchronizedDataBuffer;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -22,6 +29,7 @@ public class SocketConnection extends Thread{
     private SynchronizedDataBuffer synchronizedBuffer;
     private ConnectionTimer timer;
     private boolean shutdown;
+    private boolean active;
     private boolean ready;
     private boolean serverSide;
     private Lock statusLock;
@@ -29,6 +37,7 @@ public class SocketConnection extends Thread{
     private Condition statusCondition;
 
     private static final long DELAY_IN_MS = 200;
+    private static final int MAX_READS =50;
 
     /**
      * Package-private constructor: this is used from others constructors
@@ -55,6 +64,7 @@ public class SocketConnection extends Thread{
     SocketConnection(Socket socket, ServerSocketConnection server) throws FailedToConnectException {
         this();
         this.serverSide=true;
+        this.active=false;
         this.handlingServer=server;
         this.socket=socket;
         getStreams();
@@ -71,6 +81,7 @@ public class SocketConnection extends Thread{
     public SocketConnection(String ip, int port) throws FailedToConnectException {
         this();
         serverSide=false;
+        this.active=true;
         try {
             socket=new Socket(ip,port);
         } catch (IOException e) {
@@ -121,10 +132,26 @@ public class SocketConnection extends Thread{
      */
     private void handleClientSideSetup() {
         try{
-            outputStream.writeUTF(MessageHandler.getHelloMessage());
+            sendHelloToServer();
             waitForServerToBeReady();
         }catch (IOException e){
             shutdown();
+        }
+
+    }
+
+    /**
+     * This method is used to send a "hello message" to the server.
+     * @throws IOException if the server is unreachable
+     */
+    private void sendHelloToServer() throws IOException {
+        try{
+            outputStreamLock.lock();
+            outputStream.writeUTF(MessageHandler.getHelloMessage());
+        } catch (IOException e){
+            throw new IOException(e);
+        } finally {
+            outputStreamLock.unlock();
         }
     }
 
@@ -144,6 +171,11 @@ public class SocketConnection extends Thread{
         statusLock.unlock();
     }
 
+    /**
+     * This method computes each input passed.
+     * @param input to be computed
+     * @exception UndefinedInputTypeException thrown if an undefined message is received
+     */
     private void checkRemoteMessage(String input) {
         try {
             MessageHandler.computeInput(this,input);
@@ -152,28 +184,59 @@ public class SocketConnection extends Thread{
         }
     }
 
+    /**
+     * This method handles setup for server-side SocketConnection
+     */
     private void handleServerSideSetup() {
+        waitForServerNotification();
         try {
             String expectedHello=inputStream.readUTF();
             MessageHandler.computeInput(this, expectedHello);
+            outputStreamLock.lock();
             outputStream.writeUTF(MessageHandler.getServerIsReadyMessage());
         } catch (IOException e) {
             shutdown();
+        } finally {
+            outputStreamLock.unlock();
         }
+
     }
 
+    /**
+     * This method is used to wait that server notify this connection
+     * to set to active
+     */
+    private void waitForServerNotification() {
+        statusLock.lock();
+        try {
+            while (!active) statusCondition.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        statusLock.unlock();
+    }
+
+    /**
+     * This method is the core of SocketConnection.
+     * It sends a ping message to the remote host and than he read messages on the
+     * stream received from the remote host.
+     */
     private void handleSession() {
         statusLock.lock();
         while (!shutdown){
             statusLock.unlock();
             ping();
             computeInputs();
-            waitForDelay();
+            delay();
             statusLock.lock();
         }
         statusLock.unlock();
     }
 
+    /**
+     * This method is used to close the socket.
+     * @exception ShutDownException if the socket is already closed.
+     */
     private void tearDownConnection() {
         try {
             socket.close();
@@ -182,7 +245,11 @@ public class SocketConnection extends Thread{
         }
     }
 
-    private void waitForDelay() {
+    /**
+     * This method is used to put thread in a sleep status for
+     * a defined amount of time: {@value DELAY_IN_MS}
+     */
+    private void delay() {
         try {
             Thread.sleep(DELAY_IN_MS);
         } catch (InterruptedException e) {
@@ -190,6 +257,10 @@ public class SocketConnection extends Thread{
         }
     }
 
+    /**
+     * This method sends an encoded empty message to let the remote host to know
+     * that the connection is still active even if messages aren't exchanged during the session.
+     */
     private void ping() {
         try {
             outputStreamLock.lock();
@@ -201,11 +272,16 @@ public class SocketConnection extends Thread{
         }
     }
 
+    /**
+     * This method is used to read messages sent from the remote host.
+     * It read all messages in the buffer as long as they are under a defined
+     * {@value MAX_READS}, which is the maximum reads that can be done using this method
+     * each time.
+     */
     private void computeInputs() {
         int currentRead=0;
-        final int maxReads=50;
         try {
-            while (inputStream.available()>0&&currentRead<maxReads){
+            while (inputStream.available()>0&&currentRead< MAX_READS){
                 currentRead++;
                 String string= inputStream.readUTF();
                 MessageHandler.computeInput(this,string);
@@ -215,29 +291,52 @@ public class SocketConnection extends Thread{
         }
     }
 
+    /**
+     * This method shuts down the connection.
+     * On server-side, if the server handling this connection isn't still notified,
+     * it notifies the server.
+     */
     @SuppressWarnings("WeakerAccess")
     public void shutdown() {
-        shutdownConnection();
-        /*If we are client side isPresent will be false*/
-        Optional<ServerSocketConnection> serverToNotify=Optional.ofNullable(handlingServer);
-        serverToNotify.ifPresent(server->server.notifyDisconnection(this));
+        try{
+            shutdownConnection();
+        }catch (NotifyServerException e){
+            /*If we are client side isPresent will be false*/
+            Optional<ServerSocketConnection> serverToNotify=Optional.ofNullable(handlingServer);
+            serverToNotify.ifPresent(server->server.notifyDisconnection(this));
+        }
     }
 
+    /**
+     * This method does all the stuff needed to shutdown the connection.
+     */
     private void shutdownConnection() {
         statusLock.lock();
+        boolean alreadyDown=shutdown;
         shutdown=true;
+        synchronizedBuffer.closeBuffer();
         this.interrupt();
         statusLock.unlock();
+        if(!alreadyDown) throw new NotifyServerException();
     }
 
+    /**
+     * This method can be used to send a string to the remote host
+     * @param string to be sent
+     * @throws UnreachableHostException if the host is unreachable
+     */
     @SuppressWarnings("WeakerAccess")
-    public void writeUTF(String string) throws UnreachableHostException {
+    public void writeData(String string) throws UnreachableHostException {
         waitToBeReady();
         checkIfShutDown();
         String toSend=MessageHandler.computeOutput(string);
         sendData(toSend);
     }
 
+    /**
+     * This method is used to send data to the remote host after output-computation
+     * typical of this class
+     */
     private void sendData(String toSend) throws UnreachableHostException {
         try {
             outputStreamLock.lock();
@@ -249,6 +348,11 @@ public class SocketConnection extends Thread{
         }
     }
 
+    /**
+     * This method can be used to send an integer to the remote host
+     * @param number to be sent
+     * @throws UnreachableHostException if the host is unreachable
+     */
     @SuppressWarnings("WeakerAccess")
     public void writeInt(int number) throws UnreachableHostException {
         waitToBeReady();
@@ -262,9 +366,8 @@ public class SocketConnection extends Thread{
      * @throws UnreachableHostException when connection is down
      */
     @SuppressWarnings("WeakerAccess")
-    public String readUTF() throws UnreachableHostException{
+    public String readData() throws UnreachableHostException{
         waitToBeReady();
-        checkIfShutDown();
         try {
             return synchronizedBuffer.popString();
         } catch (ShutDownException e){
@@ -281,7 +384,6 @@ public class SocketConnection extends Thread{
     @SuppressWarnings("WeakerAccess")
     public int readInt() throws UnreachableHostException, BadMessagesSequenceException {
         waitToBeReady();
-        checkIfShutDown();
         try {
             return synchronizedBuffer.popInt();
         } catch (ShutDownException e){
@@ -289,19 +391,34 @@ public class SocketConnection extends Thread{
         }
     }
 
+    /**
+     * This method is used to add data-type message to the {@link #synchronizedBuffer}
+     * @param data to be added
+     */
     void addToBuffer(String data) {
         synchronizedBuffer.put(data);
     }
 
+    /**
+     * Reset the timer checking for timeouts due to disconnections.
+     */
     void resetTTL() {
         timer.resetTTL();
     }
 
+    /**
+     * @return true if data are available in the buffer, false in the other case.
+     */
     @SuppressWarnings("WeakerAccess")
     public boolean isDataAvailable(){
         return synchronizedBuffer.size()>0;
     }
 
+
+    /**
+     * @return the ping.
+     * @throws UnreachableHostException if the host is unreachable
+     */
     @SuppressWarnings("WeakerAccess")
     public long getPing() throws UnreachableHostException {
         waitToBeReady();
@@ -316,6 +433,9 @@ public class SocketConnection extends Thread{
         }
     }
 
+    /**
+     * @throws UnreachableHostException if the connection is closed.
+     */
     private void checkIfShutDown() throws UnreachableHostException {
         statusLock.lock();
         boolean condition=shutdown;
@@ -323,6 +443,9 @@ public class SocketConnection extends Thread{
         if(condition) throw new UnreachableHostException();
     }
 
+    /**
+     * @return true if the connection is open, false if it's closed
+     */
     @SuppressWarnings("WeakerAccess")
     public boolean isConnected() {
         statusLock.lock();
@@ -331,16 +454,26 @@ public class SocketConnection extends Thread{
         return toReturn;
     }
 
+    /**
+     * @return true if the connection is handled by a server, false in the other case.
+     */
     boolean isServerSide() {
         return serverSide;
     }
 
+    /**
+     * @return true if the setup phase is ended, false in the other case.
+     */
     boolean isReady() {
         statusLock.lock();
         boolean toReturn= ready;
         statusLock.unlock();
         return toReturn;
     }
+
+    /**
+     * This method is used to wait the end of the setup phase
+     */
     private void waitToBeReady(){
         statusLock.lock();
         while (!ready){
@@ -353,9 +486,24 @@ public class SocketConnection extends Thread{
         statusLock.unlock();
     }
 
+    /**
+     * This method is used to set {@link #ready}== true:
+     * this means that the setup phase is ended.
+     */
     void setToReady(){
         statusLock.lock();
         ready=true;
+        statusCondition.signalAll();
+        statusLock.unlock();
+    }
+
+    /**
+     * this method set the connection to active.
+     * A active connection can exchange messages with a remote host.
+     */
+    void setToActive(){
+        statusLock.lock();
+        active =true;
         statusCondition.signal();
         statusLock.unlock();
     }

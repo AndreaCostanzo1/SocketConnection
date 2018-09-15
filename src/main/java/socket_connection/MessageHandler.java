@@ -1,13 +1,14 @@
 package socket_connection;
 
 
-import socket_connection.socket_exceptions.UndefinedInputTypeException;
+import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
+import socket_connection.socket_exceptions.runtime_exceptions.UndefinedInputTypeException;
+import socket_connection.socket_exceptions.runtime_exceptions.BadSetupException;
 
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Predicate;
 
 @FunctionalInterface
@@ -19,6 +20,7 @@ final class MessageHandler {
 
 
     private static String dataMessage ="#DATA#";
+    private static Charset charset=StandardCharsets.UTF_16;
     private static final String PING_MESSAGE="";
     private static final String HELLO_MESSAGE="#HELLO#";
     private static final String SERVER_IS_READY_MESSAGE = "#SERVER_READY#";
@@ -50,10 +52,11 @@ final class MessageHandler {
      * @exception UndefinedInputTypeException thrown if the input isn't a data nor a defined-type message
      */
     static void computeInput(SocketConnection connection, String input){
-        if(inputIsDataType.test(input))
-            handleDataInput(connection,input);
+        String data = unBox(input);
+        if(inputIsDataType.test(data))
+            handleDataInput(connection,data);
         else
-            handleOthersInputs(connection,input);
+            handleOthersInputs(connection,data);
     }
 
     /**
@@ -72,7 +75,7 @@ final class MessageHandler {
      * @param connection is the connection who requested to compute an input
      * @param input to be computed
      * @exception UndefinedInputTypeException thrown if the input isn't a data nor a defined-type message
-     * @exception socket_connection.socket_exceptions.BadSetupException look at:
+     * @exception BadSetupException look at:
      * {@link InputDecoder#handleHelloMessage(SocketConnection)}
      * {@link InputDecoder#handleServerIsReadyMessage(SocketConnection)}
      */
@@ -93,7 +96,7 @@ final class MessageHandler {
         StringBuilder stringBuilder= new StringBuilder();
         stringBuilder.append(string);
         stringBuilder.insert(DATA_TAG_POSITION, dataMessage);
-        return stringBuilder.toString();
+        return box(stringBuilder.toString());
     }
 
     /**
@@ -105,7 +108,31 @@ final class MessageHandler {
         StringBuilder stringBuilder= new StringBuilder();
         stringBuilder.append(integer);
         stringBuilder.insert(DATA_TAG_POSITION, dataMessage);
-        return stringBuilder.toString();
+        return box(stringBuilder.toString());
+    }
+
+    /**
+     * @param data containing data to box
+     * @return a string containing data as bytes
+     */
+    private static String box(String data){
+        Gson gson= new Gson();
+        return gson.toJson(data.getBytes(charset));
+    }
+
+    /**
+     * @param data containing data to box
+     * @return a string containing data as bytes
+     * @exception UndefinedInputTypeException is launched if the string received isn't a bytes representation of
+     * something
+     */
+    private static String unBox(String data){
+        Gson gson= new Gson();
+        try {
+            return new String(gson.fromJson(data, byte[].class), charset);
+        }catch (JsonSyntaxException e){
+            throw new UndefinedInputTypeException();
+        }
     }
 
     /**
@@ -137,7 +164,7 @@ final class MessageHandler {
      * @return pingMessage
      */
     static String getPingMessage(){
-        return PING_MESSAGE;
+        return box(PING_MESSAGE);
     }
 
     /**
@@ -145,7 +172,7 @@ final class MessageHandler {
      * @return helloMessage
      */
     static String getHelloMessage() {
-        return HELLO_MESSAGE;
+        return box(HELLO_MESSAGE);
     }
 
     /**
@@ -153,6 +180,13 @@ final class MessageHandler {
      * @return serverIsReadyMessage
      */
     static String getServerIsReadyMessage() {
-        return SERVER_IS_READY_MESSAGE;
+        return box(SERVER_IS_READY_MESSAGE);
+    }
+
+    /**
+     * @return used charset
+     */
+    static Charset getUsedCharset(){
+        return charset;
     }
 }

@@ -1,7 +1,8 @@
 package socket_connection;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
-import socket_connection.socket_exceptions.*;
+import socket_connection.socket_exceptions.exceptions.*;
+import socket_connection.socket_exceptions.runtime_exceptions.BadSetupException;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -172,7 +173,9 @@ public class ServerSocketConnection extends Thread {
      */
     private void setupRunningAgent(SocketUserAgentInterface runningAgent) {
         try {
+            logger.finest("waiting for connection request");
             Socket client=serverSocket.accept();
+            logger.finest("Connection request received");
             setup(client, runningAgent);
             logger.finest("Client connected");
         } catch (IOException e) {
@@ -193,6 +196,7 @@ public class ServerSocketConnection extends Thread {
         availableConnectionsLock.lock();
         availableConnections.put(socket,runningAgent);
         availableConnectionsLock.unlock();
+        socket.setToActive();
         runningAgent.setConnection(socket);
         new Thread(runningAgent).start();
     }
@@ -384,5 +388,16 @@ public class ServerSocketConnection extends Thread {
         boolean closed=isClosed;
         serverStatusLock.unlock();
         return closed;
+    }
+
+    /**
+     * @return the number of active connection
+     */
+    @SuppressWarnings("WeakerAccess")
+    public int activeConnections(){
+        availableConnectionsLock.lock();
+        int toReturn=availableConnections.size();
+        availableConnectionsLock.unlock();
+        return toReturn;
     }
 }

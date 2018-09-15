@@ -1,8 +1,8 @@
-package socket_connection;
+package socket_connection.tools;
 
 import org.junit.jupiter.api.Test;
-import socket_connection.socket_exceptions.BadMessagesSequenceException;
-import socket_connection.socket_exceptions.ShutDownException;
+import socket_connection.socket_exceptions.exceptions.BadMessagesSequenceException;
+import socket_connection.socket_exceptions.runtime_exceptions.ShutDownException;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -133,7 +133,7 @@ class SynchronizedDataBufferTest {
         await("Waiting for Waiting status of thread").atMost(200, TimeUnit.MILLISECONDS )
                 .until(thread::getState,is(Thread.State.WAITING));
         //check if the thread is killed properly
-        thread.interrupt();
+        buffer.closeBuffer();
         await("Waiting for thread to close properly").atMost(200, TimeUnit.MILLISECONDS )
                 .until(thread::getState,is(Thread.State.TERMINATED));
     }

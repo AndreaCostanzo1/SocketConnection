@@ -1,13 +1,13 @@
 package socket_connection;
 
+import com.google.gson.Gson;
 import org.junit.jupiter.api.Test;
-import socket_connection.socket_exceptions.BadSetupException;
-import socket_connection.socket_exceptions.UndefinedInputTypeException;
-import socket_connection.socket_exceptions.UnreachableHostException;
+import socket_connection.socket_exceptions.runtime_exceptions.BadSetupException;
+import socket_connection.socket_exceptions.runtime_exceptions.UndefinedInputTypeException;
+import socket_connection.socket_exceptions.exceptions.UnreachableHostException;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiConsumer;
@@ -119,11 +119,9 @@ class MessageHandlerTest {
      */
     @Test
     void comeOutputWithDefaultPositionAndStringParam(){
-        String dataTag= MessageHandler.getDataTag();
-        int dataTagPosition= MessageHandler.getDataTagPosition();
         String message="Random message";
-        assertEquals(MessageHandler.computeOutput(message),computeMessage.compute(message,dataTagPosition,dataTag));
-        assertTrue(MessageHandler.getInputIsDataType().test(MessageHandler.computeOutput(message)));
+        assertTrue(MessageHandler.getInputIsDataType()
+                .test(new String(new Gson().fromJson(MessageHandler.computeOutput(message),byte[].class), MessageHandler.getUsedCharset())));
     }
 
     //****************************************************************************************
@@ -138,11 +136,9 @@ class MessageHandlerTest {
      */
     @Test
     void computeOutputWithDefaultPositionAndIntParam(){
-        String dataTag= MessageHandler.getDataTag();
-        int dataTagPosition= MessageHandler.getDataTagPosition();
         int message=10;
-        assertEquals(MessageHandler.computeOutput(message),new StringBuilder().append(message).insert(dataTagPosition, dataTag).toString());
-        assertTrue(MessageHandler.getInputIsDataType().test(MessageHandler.computeOutput(message)));
+        assertTrue(MessageHandler.getInputIsDataType()
+                .test(new String(new Gson().fromJson(MessageHandler.computeOutput(message),byte[].class), MessageHandler.getUsedCharset())));
     }
 
     //****************************************************************************************
@@ -166,12 +162,24 @@ class MessageHandlerTest {
     }
 
     /**
-     * This test assert that computing a NON-DEFINED TYPE MESSAGE cause a thrown of a
+     * This test assert that computing a NOT DECODED MESSAGE cause a thrown of a
      * UndefinedInputTypeException
      */
     @Test
     void UndefinedMessage(){
-        String undefinedMessage=MessageHandler.getPingMessage()+"undefined"; //like this we are sure that undefinedMessage!=pingMessage
+        String undefinedMessage="undefined";
+        SocketConnection mockSocket= new SocketCommTemplate();
+        assertThrows(UndefinedInputTypeException.class,
+                ()->MessageHandler.computeInput(mockSocket,undefinedMessage));
+    }
+
+    /**
+     * This test assert that computing a NON-DEFINED TYPE MESSAGE encoded and passed cause a thrown of a
+     * UndefinedInputTypeException
+     */
+    @Test
+    void UndefinedEncodedMessage(){
+        String undefinedMessage=new Gson().toJson(("undefined").getBytes(MessageHandler.getUsedCharset()));
         SocketConnection mockSocket= new SocketCommTemplate();
         assertThrows(UndefinedInputTypeException.class,
                 ()->MessageHandler.computeInput(mockSocket,undefinedMessage));

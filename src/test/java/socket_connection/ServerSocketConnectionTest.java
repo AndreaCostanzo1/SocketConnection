@@ -2,10 +2,11 @@ package socket_connection;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
-import socket_connection.socket_exceptions.*;
+import socket_connection.socket_exceptions.exceptions.*;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.net.BindException;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,147 +19,6 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.jupiter.api.Assertions.*;
 
-class ProperAgent implements SocketUserAgentInterface{
-
-    private SocketConnection connection;
-    private boolean shutdown;
-    private static boolean error=false;
-    private static Lock errorLock=new ReentrantLock();
-    private Lock lock;
-    private static List<String> messages;
-    static{
-        messages=new ArrayList<>();
-        messages.add("Message 1");
-        messages.add("Message 2");
-        messages.add("Message 3");
-        messages.add("Message 4");
-        messages.add("Message 5");
-    }
-
-    public ProperAgent(){
-        shutdown=false;
-        lock=new ReentrantLock();
-        error=false;
-        errorLock= new ReentrantLock();
-    }
-
-    static List<String> getMessages(){
-        return messages;
-    }
-    @Override
-    public void setConnection(SocketConnection connection) {
-        this.connection=connection;
-    }
-
-    static boolean getError() {
-        errorLock.lock();
-        boolean toReturn= error;
-        errorLock.unlock();
-        return toReturn;
-    }
-
-    @Override
-    public void shutdown() {
-        connection.shutdown();
-        lock.lock();
-        shutdown=true;
-        lock.unlock();
-    }
-
-    @Override @SuppressWarnings("all")
-    public void run() {
-        messages.forEach(message-> {
-            try {
-                connection.writeUTF(message);
-            } catch (UnreachableHostException e) {
-                e.printStackTrace();
-            }
-        });
-        lock.lock();
-        while(!shutdown){
-            lock.unlock();
-            int a=1,b=2;
-            int c=a+b;
-            lock.lock();
-        }
-        lock.unlock();
-    }
-}
-
-@SuppressWarnings("all")
-class NotProperConstructorAgent implements SocketUserAgentInterface{
-
-    public NotProperConstructorAgent(String parameter){
-
-    }
-
-    @Override
-    public void setConnection(SocketConnection connection) {
-
-    }
-
-    @Override
-    public void shutdown() {
-
-    }
-
-    @Override
-    public void run() {
-
-    }
-}
-
-@SuppressWarnings("all")
-class NotAccessibleConstructorAgent implements SocketUserAgentInterface{
-
-    private NotAccessibleConstructorAgent(){
-
-    }
-
-    @Override
-    public void setConnection(SocketConnection connection) {
-
-    }
-
-    @Override
-    public void shutdown() {
-
-    }
-
-    @Override
-    public void run() {
-
-    }
-}
-
-@SuppressWarnings("all")
-abstract class AbstractAgent implements SocketUserAgentInterface{
-    public void AbstactAgent(){
-
-    }
-}
-
-@SuppressWarnings("all")
-class ThrowingExceptionAgent implements SocketUserAgentInterface{
-
-    ThrowingExceptionAgent(){
-        throw new RuntimeException();
-    }
-    @Override
-    public void setConnection(SocketConnection connection) {
-
-    }
-
-    @Override
-    public void shutdown() {
-
-    }
-
-    @Override
-    public void run() {
-
-    }
-}
 class ServerSocketConnectionTest {
 
     private static int port=11000;
@@ -201,6 +61,20 @@ class ServerSocketConnectionTest {
         addServerToList(server);
         await("Avoid eventual time wait").atMost(200, TimeUnit.MILLISECONDS )
                 .untilAsserted(()->assertEquals(server.getState(),Thread.State.RUNNABLE));
+    }
+
+    /**
+     * In this test we will check that trying to open a server on the same port of
+     * an opened server will throw an exception
+     */
+    @Test
+    void openTwoServersOnTheSamePort() throws InvocationTargetException, NoDefaultConstructorException, InstantiationException, IllegalAccessException, IOException {
+        final int localPort=getPort();
+        ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
+        addServerToList(server);
+        await("Avoid eventual time wait").atMost(200, TimeUnit.MILLISECONDS )
+                .untilAsserted(()->assertEquals(server.getState(),Thread.State.RUNNABLE));
+        assertThrows(BindException.class,()->new ServerSocketConnection(localPort,ProperAgent.class ));
     }
 
     /**
@@ -280,13 +154,13 @@ class ServerSocketConnectionTest {
 
     //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     //
-    //                         TEST: connection
+    //                         TEST: connection & activeConnections()
     //
     //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     /**
      * In this test we check that after server is opened a client can connect without problem
-     * and receive message sent from server.
+     * and receive message sent from server
      */
     @Test
     void connectionTest() throws InvocationTargetException, NoDefaultConstructorException, InstantiationException, IllegalAccessException, IOException, FailedToConnectException {
@@ -296,6 +170,7 @@ class ServerSocketConnectionTest {
         addServerToList(server);
         ProperAgent.getMessages().forEach(message -> assertIsReceived(message, connection));
     }
+
 
     //****************************************************************************************
     //
@@ -533,6 +408,7 @@ class ServerSocketConnectionTest {
         assertThrows(ServerShutdownException.class,
                 server::close);
     }
+
     //****************************************************************************************
     //
     //                         TEST: void open()
@@ -623,6 +499,37 @@ class ServerSocketConnectionTest {
         assertEquals(ServerSocketConnection.Status.SHUT_DOWN,server.getStatus());
     }
 
+    //****************************************************************************************
+    //
+    //                         TEST: int activeConnections()
+    //
+    //****************************************************************************************
+
+    /**
+     * This test assert that each connection/disconnection update the number
+     * of activeConnections
+     */
+    @Test
+    void activeConnectionTest() throws InvocationTargetException, NoDefaultConstructorException, InstantiationException, IllegalAccessException, IOException, FailedToConnectException, UnreachableHostException {
+        ArrayList<SocketConnection> connections=new ArrayList<>();
+        final int localPort=getPort();
+        ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
+        addServerToList(server);
+        //test available connections after each connection
+        for (int i=0; i< 1;i++){
+            connections.add(new SocketConnection(InetAddress.getLoopbackAddress().getHostAddress(),localPort));
+            await().atMost(500,TimeUnit.MILLISECONDS )
+                    .until(server::activeConnections,is(i+1));
+        }
+        //test available connections after each disconnection
+        for (int i=0; i< connections.size();i++){
+            connections.get(i).shutdown();
+            await().atMost(500,TimeUnit.MILLISECONDS )
+                    .until(server::activeConnections,is(connections.size()-i));
+        }
+
+    }
+
     //---------------------------------------------------------------------------------------
     //
     //                                 SUPPORT METHODS
@@ -658,5 +565,143 @@ class ServerSocketConnectionTest {
         listLock.lock();
         servers.add(server);
         listLock.unlock();
+    }
+}
+
+class ProperAgent implements SocketUserAgentInterface{
+
+    private SocketConnection connection;
+    private boolean shutdown;
+    private Lock lock;
+    private static final List<String> messages;
+    static{
+        messages=new ArrayList<>();
+        messages.add("Message 1");
+        messages.add("Message 2");
+        messages.add("Message 3");
+        messages.add("Message 4");
+        messages.add("Message 5");
+    }
+
+    public ProperAgent(){
+        shutdown=false;
+        lock=new ReentrantLock();
+    }
+
+    static List<String> getMessages(){
+        synchronized (messages){return new ArrayList<>(messages);}
+    }
+    @Override
+    public void setConnection(SocketConnection connection) {
+        this.connection=connection;
+    }
+
+    @Override
+    public void shutdown() {
+        connection.shutdown();
+        lock.lock();
+        shutdown=true;
+        lock.unlock();
+    }
+
+    @Override @SuppressWarnings("all")
+    public void run() {
+        synchronized (messages){
+            messages.forEach(message-> {
+                try {
+                    connection.writeUTF(message);
+                } catch (UnreachableHostException e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+        lock.lock();
+        while(!shutdown){
+            lock.unlock();
+            doCasualStuff();
+            lock.lock();
+        }
+        lock.unlock();
+    }
+
+    @SuppressWarnings("all")
+    private void doCasualStuff() {
+        int a=1,b=2;
+        int c=a+b;
+    }
+}
+
+@SuppressWarnings("all")
+class NotProperConstructorAgent implements SocketUserAgentInterface{
+
+    public NotProperConstructorAgent(String parameter){
+
+    }
+
+    @Override
+    public void setConnection(SocketConnection connection) {
+
+    }
+
+    @Override
+    public void shutdown() {
+
+    }
+
+    @Override
+    public void run() {
+
+    }
+}
+
+@SuppressWarnings("all")
+class NotAccessibleConstructorAgent implements SocketUserAgentInterface{
+
+    private NotAccessibleConstructorAgent(){
+
+    }
+
+    @Override
+    public void setConnection(SocketConnection connection) {
+
+    }
+
+    @Override
+    public void shutdown() {
+
+    }
+
+    @Override
+    public void run() {
+
+    }
+}
+
+@SuppressWarnings("all")
+abstract class AbstractAgent implements SocketUserAgentInterface{
+    public void AbstactAgent(){
+
+    }
+}
+
+@SuppressWarnings("all")
+class ThrowingExceptionAgent implements SocketUserAgentInterface{
+
+    ThrowingExceptionAgent(){
+        throw new RuntimeException();
+    }
+    @Override
+    public void setConnection(SocketConnection connection) {
+
+    }
+
+    @Override
+    public void shutdown() {
+
+    }
+
+    @Override
+    public void run() {
+
     }
 }

@@ -1,6 +1,4 @@
-package socket_connection;
-
-import com.google.gson.Gson;
+package socket_connection.tools;
 
 public class ConfigurationHandler {
     private static Configuration configuration;

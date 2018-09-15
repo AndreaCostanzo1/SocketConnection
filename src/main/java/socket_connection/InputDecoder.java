@@ -1,6 +1,6 @@
 package socket_connection;
 
-import socket_connection.socket_exceptions.BadSetupException;
+import socket_connection.socket_exceptions.runtime_exceptions.BadSetupException;
 
 final class InputDecoder {
     private InputDecoder(){

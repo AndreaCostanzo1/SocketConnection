@@ -1,7 +1,7 @@
-package socket_connection;
+package socket_connection.tools;
 
-import socket_connection.socket_exceptions.BadMessagesSequenceException;
-import socket_connection.socket_exceptions.ShutDownException;
+import socket_connection.socket_exceptions.exceptions.BadMessagesSequenceException;
+import socket_connection.socket_exceptions.runtime_exceptions.ShutDownException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -9,19 +9,20 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-class SynchronizedDataBuffer {
+public class SynchronizedDataBuffer {
     private List<String> buffer;
+    private boolean connectionDown;
     private Lock lock;
     private Condition condition;
     private static final int FIRST_ELEMENT=0;
 
     /**
      * Constructor of SynchronizedDataBuffer.
-     * It's package-protected because only SocketConnection can create instances of this
      */
-    SynchronizedDataBuffer(){
+    public SynchronizedDataBuffer(){
         buffer=new ArrayList<>();
         lock= new ReentrantLock();
+        connectionDown=false;
         condition=lock.newCondition();
     }
 
@@ -29,7 +30,7 @@ class SynchronizedDataBuffer {
      * This method let to insert a string in the buffer
      * @param string to be inserted
      */
-    void put(String string){
+    public void put(String string){
         lock.lock();
         buffer.add(string);
         condition.signal();
@@ -38,19 +39,25 @@ class SynchronizedDataBuffer {
 
     /**
      * if buffer is empty this method will set calling thread in a wait status
-     * @exception ShutDownException launched if Thread.interrupt is called while thread is waiting for an element put in buffer
+     * @exception ShutDownException launched if the connection have been closed while the calling thread is waiting for
+     * an element put in buffer
      */
+    // FIXME: 15/09/2018 how to grant that messages sent are still held in the buffer?
+    @SuppressWarnings("all")
     private void waitForData() {
+        boolean throwException=false;
         lock.lock();
-        while (buffer.isEmpty()){
+        while (buffer.isEmpty()&&!connectionDown){
             try {
                 condition.await();
+                if(connectionDown)throwException=true;
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new ShutDownException();
+                throwException=true;
             }
         }
         lock.unlock();
+        if(throwException) throw new ShutDownException();
     }
 
     /**
@@ -59,8 +66,10 @@ class SynchronizedDataBuffer {
      * @return the first element of the buffer, converted to an integer
      * @throws BadMessagesSequenceException when first element can't be converted in an integer
      * This means something went wrong while projecting message exchanges with remote host
+     * @exception ShutDownException launched if the connection have been closed while the calling thread is waiting for
+     * an element put in buffer
      */
-    int popInt() throws BadMessagesSequenceException {
+    public int popInt() throws BadMessagesSequenceException {
         waitForData();
         String data=popFirstElem();
         try {
@@ -76,8 +85,10 @@ class SynchronizedDataBuffer {
      * Get the first element of the buffer, if the operation goes well the element is also
      * removed from the buffer
      * @return the first element of the buffer as a String
+     * @exception ShutDownException launched if the connection have been closed while the calling thread is waiting for
+     * an element put in buffer
      */
-    String popString(){
+    public String popString(){
         waitForData();
         String toReturn=popFirstElem();
         removeFirstElem();
@@ -106,10 +117,20 @@ class SynchronizedDataBuffer {
     /**
      * @return the size of the buffer
      */
-    int size() {
+    public int size() {
         lock.lock();
         int dimension= buffer.size();
         lock.unlock();
         return dimension;
+    }
+
+    /**
+     * used to notify the waiting thread that the connection using this buffer is closed.
+     */
+    public void closeBuffer(){
+        lock.lock();
+        connectionDown=true;
+        condition.signal();
+        lock.unlock();
     }
 }

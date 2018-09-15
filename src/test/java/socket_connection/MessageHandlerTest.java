@@ -157,7 +157,7 @@ class MessageHandlerTest {
         String computedMessage=MessageHandler.computeOutput(message);
         SocketConnection mockSocket= new SocketCommTemplate();
         MessageHandler.computeInput(mockSocket, computedMessage);
-        String elaboratedMessage= mockSocket.readUTF();
+        String elaboratedMessage= mockSocket.readData();
         assertEquals(message,elaboratedMessage);
     }
 

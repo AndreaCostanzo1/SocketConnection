@@ -1,4 +1,4 @@
-package socket_connection.socket_exceptions;
+package socket_connection.socket_exceptions.exceptions;
 
 public class BadMessagesSequenceException extends Exception {
     private final String message;

@@ -226,13 +226,11 @@ class SocketConnectionTest {
 class NormalAgent implements SocketUserAgentInterface{
 
     private SocketConnection connection;
-    private boolean shutdown;
     private Lock lock;
     private final static int CYCLES1 =7;
     private final static int CYCLES2 =7;
 
     public NormalAgent(){
-        shutdown=false;
         lock=new ReentrantLock();
     }
 
@@ -245,9 +243,6 @@ class NormalAgent implements SocketUserAgentInterface{
     @Override
     public void shutdown() {
         connection.shutdown();
-        lock.lock();
-        shutdown=true;
-        lock.unlock();
     }
 
     @Override @SuppressWarnings("all")
@@ -284,13 +279,9 @@ class NormalAgent implements SocketUserAgentInterface{
 class Agent2 implements SocketUserAgentInterface{
 
     private SocketConnection connection;
-    private boolean shutdown;
     private static final String MESSAGE_SENT ="Stuff";
-    private Lock lock;
 
     public Agent2(){
-        shutdown=false;
-        lock=new ReentrantLock();
     }
 
 
@@ -302,9 +293,6 @@ class Agent2 implements SocketUserAgentInterface{
     @Override
     public void shutdown() {
         connection.shutdown();
-        lock.lock();
-        shutdown=true;
-        lock.unlock();
     }
 
     @Override @SuppressWarnings("all")
@@ -324,13 +312,9 @@ class Agent2 implements SocketUserAgentInterface{
 class Agent3 implements SocketUserAgentInterface{
 
     private SocketConnection connection;
-    private boolean shutdown;
     private static final int MESSAGE_SENT =2;
-    private Lock lock;
 
     public Agent3(){
-        shutdown=false;
-        lock=new ReentrantLock();
     }
 
 
@@ -342,9 +326,6 @@ class Agent3 implements SocketUserAgentInterface{
     @Override
     public void shutdown() {
         connection.shutdown();
-        lock.lock();
-        shutdown=true;
-        lock.unlock();
     }
 
     @Override @SuppressWarnings("all")
@@ -365,13 +346,8 @@ class Agent3 implements SocketUserAgentInterface{
 class Agent4 implements SocketUserAgentInterface{
 
     private SocketConnection connection;
-    private boolean shutdown;
-    private static final int MESSAGE_SENT =2;
-    private Lock lock;
 
     public Agent4(){
-        shutdown=false;
-        lock=new ReentrantLock();
     }
 
 
@@ -383,9 +359,6 @@ class Agent4 implements SocketUserAgentInterface{
     @Override
     public void shutdown() {
         connection.shutdown();
-        lock.lock();
-        shutdown=true;
-        lock.unlock();
     }
 
     @Override @SuppressWarnings("all")

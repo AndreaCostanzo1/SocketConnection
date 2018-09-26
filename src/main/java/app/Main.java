@@ -1,11 +1,14 @@
-package app;
+package app.pck;
 
 public final class Main {
-    private Main(){
-        throw new AssertionError();
+
+
+    public static void main(String[] args) {
+        Main main= new Main();
+        main.abba();
     }
 
-    @SuppressWarnings("all")
-    public static void main(String[] args) {
+    void abba(){
+        System.out.println(this.getClass().getProtectionDomain().getCodeSource().getLocation().getPath());
     }
 }

@@ -1,27 +1,32 @@
 package socket_connection.tools;
 
-import java.net.InetAddress;
+public class SocketConnectionConfigurations {
 
-public class Configuration {
-    private int connectionPort;
-    private String connectionIP;
-    private int connectionTTLinSec;
+    private long delayInMs;
+    private int maxReads;
+    private boolean enabledMaxReads;
+    private final int timeToLive;
 
-    public Configuration(){
-        this.connectionPort=11000;
-        this.connectionIP=InetAddress.getLoopbackAddress().getHostAddress();
-        this.connectionTTLinSec=2;
+    SocketConnectionConfigurations(){
+        this.delayInMs=200;
+        this.maxReads=50;
+        this.enabledMaxReads=true;
+        this.timeToLive =2;
     }
 
-    protected int getConnectionPort(){
-        return connectionPort;
+    public long getDelayInMs() {
+        return delayInMs;
     }
 
-    protected String getConnectionIP(){
-        return connectionIP;
+    public int getMaxReads() {
+        return maxReads;
     }
 
-    protected int getConnectionTTL(){
-        return connectionTTLinSec;
+    public boolean isEnabledMaxReads() {
+        return enabledMaxReads;
+    }
+
+    public int getTimeToLive() {
+        return timeToLive;
     }
 }

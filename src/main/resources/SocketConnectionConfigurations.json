@@ -1,0 +1,6 @@
+{
+  "delayInMs": 200,
+  "maxReads": 50,
+  "enabledMaxReads": true,
+  "timeToLive": 2
+}

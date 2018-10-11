@@ -73,7 +73,7 @@ public class ServerSocketConnection extends Thread {
      * @param port where to open the server
      * @param userAgentClass the class implementing SocketUSerAgentInterface.
      *                       This is used to create and run user agents instances.
-     * @param manualStart if set == true you have to start manually (using the start setup)
+     * @param manualStart if set == true you have to start manually (using the start getInstance)
      *                    the thread checking for connections
      * @throws IOException if the port is already in use
      * @throws NoDefaultConstructorException if the implementing class doesn't have a default constructor
@@ -125,7 +125,7 @@ public class ServerSocketConnection extends Thread {
     }
 
     /**
-     * This setup contains all operation to do before server is shut down.
+     * This getInstance contains all operation to do before server is shut down.
      */
     private void tearDownProtocol() {
         availableConnectionsLock.lock();
@@ -140,9 +140,9 @@ public class ServerSocketConnection extends Thread {
 
 
     /**
-     * this setup will set a delay between every
+     * this getInstance will set a delay between every
      * iteration of the methods into the while block of
-     * the run setup
+     * the run getInstance
      */
     private void delay() {
         try {
@@ -153,7 +153,7 @@ public class ServerSocketConnection extends Thread {
     }
 
     /**
-     * This setup accept incoming connection, create and setup a new instance of
+     * This getInstance accept incoming connection, create and getInstance a new instance of
      * a generic user agent class implementing SocketUserAgentInterface.
      */
     private void handleIncomingConnections() {
@@ -167,9 +167,9 @@ public class ServerSocketConnection extends Thread {
     }
 
     /**
-     * this setup setup properly a running agent when a connection request
+     * this getInstance getInstance properly a running agent when a connection request
      * is received
-     * @param runningAgent to setup
+     * @param runningAgent to getInstance
      */
     private void setupRunningAgent(SocketUserAgentInterface runningAgent) {
         try {
@@ -181,14 +181,14 @@ public class ServerSocketConnection extends Thread {
         } catch (IOException e) {
             handleThrown();
         } catch (FailedToConnectException e) {
-            logger.fine("Client disconnected before ending setup phase");
+            logger.fine("Client disconnected before ending getInstance phase");
         }
     }
 
     /**
      * Given a connection bind it to the relative agent.
      * @param client is the connection just accepted
-     * @param runningAgent to setup
+     * @param runningAgent to getInstance
      * @throws FailedToConnectException if can't connect anymore to the connection just accepted
      */
     private void setup(@NotNull Socket client,@NotNull SocketUserAgentInterface runningAgent) throws FailedToConnectException {
@@ -283,8 +283,8 @@ public class ServerSocketConnection extends Thread {
     }
 
     /**
-     * This setup is used to shut down server.
-     * After using this setup no one can connect anymore
+     * This getInstance is used to shut down server.
+     * After using this getInstance no one can connect anymore
      * and all open connections will be closed.
      * @throws ServerShutdownException if server is already closed
      * @exception BadSetupException is launched just if there's a severe error due

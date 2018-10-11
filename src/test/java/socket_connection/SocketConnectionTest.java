@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import socket_connection.socket_exceptions.exceptions.*;
 import socket_connection.socket_exceptions.runtime_exceptions.UndefinedInputTypeException;
+import socket_connection.tools.ConfigurationHandler;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -74,7 +75,7 @@ class SocketConnectionTest {
     /**
      * This method is used to test concurrency on outputStream: if not well developed it
      * will cause error during read.
-     * If it fails, you should check if all locks are taken properly before using buffer
+     * If it fails, you should check if all locks are taken properly before using buffer.
      */
     @Test
     void outputStreamWorksFine() throws FailedToConnectException {
@@ -82,7 +83,7 @@ class SocketConnectionTest {
         SocketConnection connection=new SocketConnection(InetAddress.getLoopbackAddress().getHostAddress(), PORT1);
         //ensure that a not encoded message throws an UndefinedInputTypeException
         assertThrows(UndefinedInputTypeException.class,
-                ()->MessageHandler.computeInput(connection, "random not encoded string"));
+                ()->new MessageHandler().computeInput(connection, "random not encoded string"));
         ArrayList<Thread> threads=new ArrayList<>();
         for (int i=0; i<activatedThreads;i++) {
             threads.add(new Thread(this::openConnections));

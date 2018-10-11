@@ -7,10 +7,10 @@ import java.lang.reflect.InvocationTargetException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class InputDecoderTest {
+class CSMHandlerTest {
 
     /**
-     * This test assert that is impossible to create an instance of InputDecoder
+     * This test assert that is impossible to create an instance of CSMHandler
      */
     @Test
     void noInstancesCanBeCreated() {
@@ -18,7 +18,7 @@ class InputDecoderTest {
     }
 
     /**
-     * This method try to create a InputDecoder instance. If the constructor launch an exception
+     * This method try to create a CSMHandler instance. If the constructor launch an exception
      * the exception will be thrown up.
      *
      * In details:
@@ -28,7 +28,7 @@ class InputDecoderTest {
      * exception launched by the constructor.
      */
     private void createInputDecoderInstance() throws Throwable {
-        Constructor<InputDecoder> constructor= InputDecoder.class.getDeclaredConstructor();
+        Constructor<CSMHandler> constructor= CSMHandler.class.getDeclaredConstructor();
         constructor.setAccessible(true);
         try{
             constructor.newInstance();

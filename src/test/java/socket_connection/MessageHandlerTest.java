@@ -1,13 +1,13 @@
 package socket_connection;
 
 import com.google.gson.Gson;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import socket_connection.socket_exceptions.runtime_exceptions.BadSetupException;
 import socket_connection.socket_exceptions.runtime_exceptions.UndefinedInputTypeException;
 import socket_connection.socket_exceptions.exceptions.UnreachableHostException;
+import socket_connection.tools.ConfigurationHandler;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiConsumer;
@@ -20,7 +20,7 @@ class SocketCommTemplate extends SocketConnection{
         super.setToReady();
     }
 
-    @Override
+    @Override @SuppressWarnings("all")
     void resetTTL(){
     }
 }
@@ -34,22 +34,14 @@ class MessageHandlerTest {
 
     private static final TriFunction<String,String,Integer,String> computeMessage =
             (input, dataTagPosition, dataTag) -> new StringBuilder().append(input).insert(dataTagPosition, dataTag).toString();
-
-    //****************************************************************************************
-    //
-    //                         TEST: constructor
-    //
-    //****************************************************************************************
+    private static final MessageHandler messageHandler= new MessageHandler();
 
     /**
-     * This test assert that we can't create instances of MessageHandler:
-     * this is due to the fact that MessageHandler is a final class
+     * Before running messageHandler configurations need to be loaded.
      */
-    @Test
-    void cannotExistInstances() throws NoSuchMethodException {
-        Constructor<MessageHandler> constructor=MessageHandler.class.getDeclaredConstructor();
-        constructor.setAccessible(true);
-        assertThrows(AssertionError.class, ()->newInstance(constructor));
+    @BeforeAll
+    static void setupConfigurations(){
+        ConfigurationHandler.getInstance();
     }
 
     //****************************************************************************************
@@ -63,7 +55,7 @@ class MessageHandlerTest {
      */
     @Test
     void tagPositionTest(){
-        assertEquals(0, MessageHandler.getDataTagPosition());
+        assertEquals(0, messageHandler.getDataTagPosition());
     }
 
     /**
@@ -72,9 +64,9 @@ class MessageHandlerTest {
     @Test
     void isDataTypeWithDataMessage(){
         String input="DataMessage";
-        String dataTag= MessageHandler.getDataTag();
-        int dataTagPosition= MessageHandler.getDataTagPosition();
-        assertTrue(MessageHandler.getInputIsDataType().test(computeMessage.compute(input,dataTagPosition,dataTag)));
+        String dataTag= messageHandler.getDataTag();
+        int dataTagPosition= messageHandler.getDataTagPosition();
+        assertTrue(messageHandler.getInputIsDataType().test(computeMessage.compute(input,dataTagPosition,dataTag)));
     }
 
     /**
@@ -83,7 +75,7 @@ class MessageHandlerTest {
     @Test
     void isDataTypeWithPingMessage(){
         String notDataMessage="NotDataMessage";
-        assertFalse(MessageHandler.getInputIsDataType().test(notDataMessage));
+        assertFalse(messageHandler.getInputIsDataType().test(notDataMessage));
     }
 
     /**
@@ -94,7 +86,7 @@ class MessageHandlerTest {
         String s="";
         //this is the shortest string possible. If a stringOutOfBound exceptions isn't thrown there it couldn't be thrown
         //in any other case.
-        assertFalse(MessageHandler.getInputIsDataType().test(s));
+        assertFalse(messageHandler.getInputIsDataType().test(s));
     }
 
     /**
@@ -102,10 +94,10 @@ class MessageHandlerTest {
      */
     @Test
     void notNullMessages(){
-        assertNotNull(MessageHandler.getDataTag());
-        assertNotNull(MessageHandler.getPingMessage());
-        assertNotNull(MessageHandler.getHelloMessage());
-        assertNotNull(MessageHandler.getServerIsReadyMessage());
+        assertNotNull(messageHandler.getDataTag());
+        assertNotNull(messageHandler.getPingMessage());
+        assertNotNull(messageHandler.getHelloMessage());
+        assertNotNull(messageHandler.getServerIsReadyMessage());
     }
     //****************************************************************************************
     //
@@ -120,8 +112,9 @@ class MessageHandlerTest {
     @Test
     void comeOutputWithDefaultPositionAndStringParam(){
         String message="Random message";
-        assertTrue(MessageHandler.getInputIsDataType()
-                .test(new String(new Gson().fromJson(MessageHandler.computeOutput(message),byte[].class), MessageHandler.getUsedCharset())));
+        assertTrue(messageHandler.getInputIsDataType()
+                .test(new String(new Gson().fromJson(messageHandler.computeOutput(message),byte[].class),
+                        messageHandler.getUsedCharset())));
     }
 
     //****************************************************************************************
@@ -137,8 +130,9 @@ class MessageHandlerTest {
     @Test
     void computeOutputWithDefaultPositionAndIntParam(){
         int message=10;
-        assertTrue(MessageHandler.getInputIsDataType()
-                .test(new String(new Gson().fromJson(MessageHandler.computeOutput(message),byte[].class), MessageHandler.getUsedCharset())));
+        assertTrue(messageHandler.getInputIsDataType()
+                .test(new String(new Gson().fromJson(messageHandler.computeOutput(message),byte[].class),
+                        messageHandler.getUsedCharset())));
     }
 
     //****************************************************************************************
@@ -154,9 +148,9 @@ class MessageHandlerTest {
     @Test
     void computeInputWithDefaultComputedDataType() throws UnreachableHostException {
         String message="Random message";
-        String computedMessage=MessageHandler.computeOutput(message);
+        String computedMessage=messageHandler.computeOutput(message);
         SocketConnection mockSocket= new SocketCommTemplate();
-        MessageHandler.computeInput(mockSocket, computedMessage);
+        messageHandler.computeInput(mockSocket, computedMessage);
         String elaboratedMessage= mockSocket.readData();
         assertEquals(message,elaboratedMessage);
     }
@@ -166,11 +160,11 @@ class MessageHandlerTest {
      * UndefinedInputTypeException
      */
     @Test
-    void UndefinedMessage(){
+    void undefinedMessage(){
         String undefinedMessage="undefined";
         SocketConnection mockSocket= new SocketCommTemplate();
         assertThrows(UndefinedInputTypeException.class,
-                ()->MessageHandler.computeInput(mockSocket,undefinedMessage));
+                ()->messageHandler.computeInput(mockSocket,undefinedMessage));
     }
 
     /**
@@ -178,11 +172,11 @@ class MessageHandlerTest {
      * UndefinedInputTypeException
      */
     @Test
-    void UndefinedEncodedMessage(){
-        String undefinedMessage=new Gson().toJson(("undefined").getBytes(MessageHandler.getUsedCharset()));
+    void undefinedEncodedMessage(){
+        String undefinedMessage=new Gson().toJson(("undefined").getBytes(messageHandler.getUsedCharset()));
         SocketConnection mockSocket= new SocketCommTemplate();
         assertThrows(UndefinedInputTypeException.class,
-                ()->MessageHandler.computeInput(mockSocket,undefinedMessage));
+                ()->messageHandler.computeInput(mockSocket,undefinedMessage));
     }
 
     /**
@@ -191,11 +185,11 @@ class MessageHandlerTest {
     @Test
     void checkCorrectComputationNonDataTypeDefinedMessages(){
         Map<String,SocketConnection> messagesToTest= new HashMap<>();
-        messagesToTest.put(MessageHandler.getPingMessage(), new SocketCommTemplate());
-        messagesToTest.put(MessageHandler.getHelloMessage(), new SocketCommTemplate());
-        messagesToTest.put(MessageHandler.getServerIsReadyMessage(), new SocketCommTemplate());
-        messagesToTest.keySet().forEach(message->assertFalse(MessageHandler.getInputIsDataType().test(message)));
-        messagesToTest.forEach((message,client)->assertNoExceptionThrown(MessageHandler::computeInput,BadSetupException.class).accept(client, message));
+        messagesToTest.put(messageHandler.getPingMessage(), new SocketCommTemplate());
+        messagesToTest.put(messageHandler.getHelloMessage(), new SocketCommTemplate());
+        messagesToTest.put(messageHandler.getServerIsReadyMessage(), new SocketCommTemplate());
+        messagesToTest.keySet().forEach(message->assertFalse(messageHandler.getInputIsDataType().test(message)));
+        messagesToTest.forEach((message,client)->assertNoExceptionThrown(messageHandler::computeInput,BadSetupException.class).accept(client, message));
     }
 
     //---------------------------------------------------------------------------------------
@@ -203,19 +197,6 @@ class MessageHandlerTest {
     //                                 SUPPORT METHODS
     //
     //---------------------------------------------------------------------------------------
-
-    /**
-     * This method try to create an instance of MessageHandler
-     * @param constructor constructor of MessageHandler
-     * @throws Throwable an eventual exception thrown using newInstance (expected AssertionError)
-     */
-    private void newInstance(Constructor<MessageHandler> constructor) throws Throwable {
-        try {
-            constructor.newInstance();
-        } catch (InvocationTargetException e) {
-            throw e.getCause();
-        }
-    }
 
 
     /**

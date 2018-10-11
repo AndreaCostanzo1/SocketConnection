@@ -4,11 +4,13 @@ import socket_connection.socket_exceptions.runtime_exceptions.BadSetupException;
 
 /**
  * This class work is to handle all kind of defined-type messages that are used
- * from SocketConnection to setup, to check if the connection is still active and
+ * from SocketConnection to getInstance, to check if the connection is still active and
  * other stuff.
+ *
+ * CSM means ConnectionStatusMessages
  */
-final class InputDecoder {
-    private InputDecoder(){
+final class CSMHandler {
+    private CSMHandler(){
         throw new AssertionError();
     }
 

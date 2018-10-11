@@ -6,7 +6,9 @@ import socket_connection.socket_exceptions.exceptions.UnreachableHostException;
 import socket_connection.socket_exceptions.runtime_exceptions.NotifyServerException;
 import socket_connection.socket_exceptions.runtime_exceptions.ShutDownException;
 import socket_connection.socket_exceptions.runtime_exceptions.UndefinedInputTypeException;
+import socket_connection.tools.ConfigurationHandler;
 import socket_connection.tools.ConnectionTimer;
+import socket_connection.tools.SocketConnectionConfigurations;
 import socket_connection.tools.SynchronizedDataBuffer;
 
 import java.io.DataInputStream;
@@ -35,16 +37,21 @@ public class SocketConnection extends Thread{
     private Lock statusLock;
     private Lock outputStreamLock;
     private Condition statusCondition;
+    private MessageHandler messageHandler;
 
-    private static final long DELAY_IN_MS = 200;
-    private static final int MAX_READS =50;
+    private long delayInMs;
+    private int maxReads;
+    private boolean enabledMaxReads;
+    private int timeToLive;
 
     /**
      * Package-private constructor: this is used from others constructors
      * to initialize some fields.
      */
     SocketConnection(){
+        setupConfigurations();
         this.synchronizedBuffer =new SynchronizedDataBuffer();
+        this.messageHandler= new MessageHandler();
         this.statusLock =new ReentrantLock();
         this.statusCondition=statusLock.newCondition();
         this.outputStreamLock=new ReentrantLock();
@@ -55,11 +62,11 @@ public class SocketConnection extends Thread{
 
     /**
      * Package-private constructor for socket connection. This is called
-     * from a ServerSocketConnection to setup an incoming connection
+     * from a ServerSocketConnection to getInstance an incoming connection
      * @param socket is the socket relative to the accepted connection
      * @param server is the server handling the connection
      * @throws FailedToConnectException if the connection is closed before
-     * the ending of the setup phase
+     * the ending of the getInstance phase
      */
     SocketConnection(Socket socket, ServerSocketConnection server) throws FailedToConnectException {
         this();
@@ -92,6 +99,17 @@ public class SocketConnection extends Thread{
     }
 
     /**
+     * This method is used to getInstance
+     */
+    private void setupConfigurations() {
+        SocketConnectionConfigurations config= ConfigurationHandler.getInstance().getSocketConnectionConfigurations();
+        this.delayInMs=config.getDelayInMs();
+        this.maxReads=config.getMaxReads();
+        this.enabledMaxReads=config.isEnabledMaxReads();
+        this.timeToLive =config.getTimeToLive();
+    }
+
+    /**
      * This method is used to get the streams relative to
      * the socket where the connection is opened
      * @throws FailedToConnectException if the host/server is unreachable
@@ -116,7 +134,7 @@ public class SocketConnection extends Thread{
     }
 
     /**
-     * This method is used to setup the connection
+     * This method is used to getInstance the connection
      */
     private void setupConnection() {
         if(serverSide)
@@ -127,7 +145,7 @@ public class SocketConnection extends Thread{
     }
 
     /**
-     * This method is used to setup the connection
+     * This method is used to getInstance the connection
      * if the socket represent the client side-connection
      */
     private void handleClientSideSetup() {
@@ -147,7 +165,7 @@ public class SocketConnection extends Thread{
     private void sendHelloToServer() throws IOException {
         try{
             outputStreamLock.lock();
-            outputStream.writeUTF(MessageHandler.getHelloMessage());
+            outputStream.writeUTF(messageHandler.getHelloMessage());
         } catch (IOException e){
             throw new IOException(e);
         } finally {
@@ -178,22 +196,22 @@ public class SocketConnection extends Thread{
      */
     private void checkRemoteMessage(String input) {
         try {
-            MessageHandler.computeInput(this,input);
+            messageHandler.computeInput(this,input);
         } catch (UndefinedInputTypeException e){
             throw new UndefinedInputTypeException();
         }
     }
 
     /**
-     * This method handles setup for server-side SocketConnection
+     * This method handles getInstance for server-side SocketConnection
      */
     private void handleServerSideSetup() {
         waitForServerNotification();
         try {
             String expectedHello=inputStream.readUTF();
-            MessageHandler.computeInput(this, expectedHello);
+            messageHandler.computeInput(this, expectedHello);
             outputStreamLock.lock();
-            outputStream.writeUTF(MessageHandler.getServerIsReadyMessage());
+            outputStream.writeUTF(messageHandler.getServerIsReadyMessage());
         } catch (IOException e) {
             shutdown();
         } finally {
@@ -239,6 +257,7 @@ public class SocketConnection extends Thread{
      */
     private void tearDownConnection() {
         try {
+            timer.stop();
             socket.close();
         } catch (IOException e) {
             throw new ShutDownException();
@@ -247,11 +266,11 @@ public class SocketConnection extends Thread{
 
     /**
      * This method is used to put thread in a sleep status for
-     * a defined amount of time: {@value DELAY_IN_MS}
+     * a defined amount of time: {@link #delayInMs}
      */
     private void delay() {
         try {
-            Thread.sleep(DELAY_IN_MS);
+            Thread.sleep(delayInMs);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -264,7 +283,7 @@ public class SocketConnection extends Thread{
     private void ping() {
         try {
             outputStreamLock.lock();
-            outputStream.writeUTF(MessageHandler.getPingMessage());
+            outputStream.writeUTF(messageHandler.getPingMessage());
         } catch (IOException e) {
             shutdown();
         } finally {
@@ -274,17 +293,16 @@ public class SocketConnection extends Thread{
 
     /**
      * This method is used to read messages sent from the remote host.
-     * It read all messages in the buffer as long as they are under a defined
-     * {@value MAX_READS}, which is the maximum reads that can be done using this method
-     * each time.
+     * It read all messages in the buffer or a defined number {@link #maxReads} of messages
+     * depending on the fact that "max reads" are enabled or not {@link #enabledMaxReads}
      */
     private void computeInputs() {
         int currentRead=0;
         try {
-            while (inputStream.available()>0&&currentRead< MAX_READS){
+            while (inputStream.available()>0&&(enabledMaxReads &&currentRead< maxReads)){
                 currentRead++;
                 String string= inputStream.readUTF();
-                MessageHandler.computeInput(this,string);
+                messageHandler.computeInput(this,string);
             }
         } catch (IOException e) {
             shutdown();
@@ -329,7 +347,7 @@ public class SocketConnection extends Thread{
     public void writeData(String string) throws UnreachableHostException {
         waitToBeReady();
         checkIfShutDown();
-        String toSend=MessageHandler.computeOutput(string);
+        String toSend=messageHandler.computeOutput(string);
         sendData(toSend);
     }
 
@@ -357,7 +375,7 @@ public class SocketConnection extends Thread{
     public void writeInt(int number) throws UnreachableHostException {
         waitToBeReady();
         checkIfShutDown();
-        String toSend= MessageHandler.computeOutput(number);
+        String toSend= messageHandler.computeOutput(number);
         sendData(toSend);
     }
 
@@ -462,7 +480,7 @@ public class SocketConnection extends Thread{
     }
 
     /**
-     * @return true if the setup phase is ended, false in the other case.
+     * @return true if the getInstance phase is ended, false in the other case.
      */
     boolean isReady() {
         statusLock.lock();
@@ -472,7 +490,7 @@ public class SocketConnection extends Thread{
     }
 
     /**
-     * This method is used to wait the end of the setup phase
+     * This method is used to wait the end of the getInstance phase
      */
     private void waitToBeReady(){
         statusLock.lock();
@@ -488,7 +506,7 @@ public class SocketConnection extends Thread{
 
     /**
      * This method is used to set {@link #ready}== true:
-     * this means that the setup phase is ended.
+     * this means that the getInstance phase is ended.
      */
     void setToReady(){
         statusLock.lock();
@@ -506,5 +524,13 @@ public class SocketConnection extends Thread{
         active =true;
         statusCondition.signal();
         statusLock.unlock();
+    }
+
+    /**
+     * This method is used to get the timeToLive of the connections
+     * @return an integer representing the timeToLive in fixme time unit
+     */
+    public int getTimeToLive() {
+        return timeToLive;
     }
 }

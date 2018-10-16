@@ -13,14 +13,14 @@ public class ConfigurationHandler {
     private MessageHandlerConfigurations messageHandlerConfigurations;
     private boolean runningDefaultMHConfigurations;
     private boolean runningDefaultSCConfigurations;
-    private final Gson gson=new Gson();
     private static final String ABSOLUTE_PATH = ConfigurationHandler.class.getProtectionDomain().getCodeSource().getLocation().getPath();
     private static final String MESSAGE_HANDLER_CONFIGURATIONS_PATH = ABSOLUTE_PATH +"MessageHandlerConfigurations.json";
     private static final String SOCKET_CONNECTION_CONFIGURATIONS_PATH = ABSOLUTE_PATH +"SocketConnectionConfigurations.json";
 
     private ConfigurationHandler(){
-        loadMessageHandlerConfigurations();
-        loadSocketConnectionConfigurations();
+        Gson gson=new Gson();
+        loadMessageHandlerConfigurations(gson);
+        loadSocketConnectionConfigurations(gson);
     }
 
     public static ConfigurationHandler getInstance(){
@@ -28,7 +28,7 @@ public class ConfigurationHandler {
         return instance;
     }
 
-    private void loadMessageHandlerConfigurations() {
+    private void loadMessageHandlerConfigurations(Gson gson) {
         File file= new File(MESSAGE_HANDLER_CONFIGURATIONS_PATH);
         try {
             messageHandlerConfigurations= gson.fromJson(new FileReader(file), MessageHandlerConfigurations.class);
@@ -39,7 +39,7 @@ public class ConfigurationHandler {
         }
     }
 
-    private void loadSocketConnectionConfigurations() {
+    private void loadSocketConnectionConfigurations(Gson gson) {
         File file= new File(SOCKET_CONNECTION_CONFIGURATIONS_PATH);
         try {
             socketConnectionConfigurations= gson.fromJson(new FileReader(file), SocketConnectionConfigurations.class);

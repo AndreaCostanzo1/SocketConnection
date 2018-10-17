@@ -3,6 +3,7 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import socket_connection.socket_exceptions.exceptions.*;
 import socket_connection.socket_exceptions.runtime_exceptions.BadSetupException;
+import socket_connection.tools.ConnectionsHandler;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -13,7 +14,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
@@ -21,9 +21,8 @@ public class ServerSocketConnection extends Thread {
 
     private int port;
     private Class<? extends SocketUserAgentInterface> agentClassType;
-    private HashMap<SocketConnection,SocketUserAgentInterface> availableConnections;
+    private ConnectionsHandler connectionsHandler;
     private ReentrantLock serverStatusLock;
-    private Lock availableConnectionsLock;
     private ExecutorService threadsHandler;
     private Condition serverStatusCondition;
     private boolean shutdown;
@@ -98,14 +97,13 @@ public class ServerSocketConnection extends Thread {
      * Private constructor to initialize principal fields
      */
     private ServerSocketConnection(){
-        shutdown=false;
-        availableConnections= new HashMap<>();
-        availableConnectionsLock=new ReentrantLock();
-        serverStatusLock =new ReentrantLock();
-        isClosed=false;
-        serverStatusCondition =serverStatusLock.newCondition();
-        threadsHandler= Executors.newCachedThreadPool();
-        logger=Logger.getLogger(ServerSocketConnection.class.toString()+"%u");
+        this.shutdown=false;
+        this.connectionsHandler=new ConnectionsHandler();
+        this.serverStatusLock =new ReentrantLock();
+        this.isClosed=false;
+        this.serverStatusCondition =serverStatusLock.newCondition();
+        this.threadsHandler= Executors.newCachedThreadPool();
+        this.logger=Logger.getLogger(ServerSocketConnection.class.toString()+"%u");
     }
 
     /**
@@ -128,9 +126,7 @@ public class ServerSocketConnection extends Thread {
      * This getInstance contains all operation to do before server is shut down.
      */
     private void tearDownProtocol() {
-        availableConnectionsLock.lock();
-        availableConnections.values().forEach(SocketUserAgentInterface::shutdown);
-        availableConnectionsLock.unlock();
+        connectionsHandler.shutdownAllConnections();
         try {
             threadsHandler.awaitTermination(awaitExecutorInMS, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
@@ -192,12 +188,10 @@ public class ServerSocketConnection extends Thread {
      * @throws FailedToConnectException if can't connect anymore to the connection just accepted
      */
     private void setup(@NotNull Socket client,@NotNull SocketUserAgentInterface runningAgent) throws FailedToConnectException {
-        SocketConnection socket=new SocketConnection(client,this);
-        availableConnectionsLock.lock();
-        availableConnections.put(socket,runningAgent);
-        availableConnectionsLock.unlock();
-        socket.setToActive();
-        runningAgent.setConnection(socket);
+        SocketConnection connection=new SocketConnection(client,this);
+        connectionsHandler.addConnection(connection, runningAgent);
+        connection.setToActive();
+        runningAgent.setConnection(connection);
         new Thread(runningAgent).start();
     }
 
@@ -349,18 +343,7 @@ public class ServerSocketConnection extends Thread {
      * @param connection is the connection who notified the server that it will be closed soon
      */
     void notifyDisconnection(SocketConnection connection) {
-        threadsHandler.execute(()-> removeConnection(connection));
-    }
-
-    /**
-     * Remove the connection passed from connections hash map
-     * @param connection to be removed
-     * @exception BadSetupException if the connection isn't in the hash map
-     */
-    private void removeConnection(SocketConnection connection) {
-        availableConnectionsLock.lock();
-        if(!Optional.ofNullable(availableConnections.remove(connection)).isPresent()) throw new BadSetupException();
-        availableConnectionsLock.unlock();
+        threadsHandler.execute(()-> connectionsHandler.removeConnection(connection));
     }
 
     /**
@@ -395,9 +378,6 @@ public class ServerSocketConnection extends Thread {
      */
     @SuppressWarnings("WeakerAccess")
     public int activeConnections(){
-        availableConnectionsLock.lock();
-        int toReturn=availableConnections.size();
-        availableConnectionsLock.unlock();
-        return toReturn;
+        return connectionsHandler.activeConnections();
     }
 }

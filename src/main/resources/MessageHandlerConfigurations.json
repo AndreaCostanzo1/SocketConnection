@@ -1,6 +1,7 @@
 {
   "pingMessage": "",
   "dataMessage": "#DATA#",
+  "dataTagPosition": 0,
   "helloMessage": "#HELLO#",
   "serverIsReadyMessage": "#SERVER_READY#",
   "charset": "UTF-16"

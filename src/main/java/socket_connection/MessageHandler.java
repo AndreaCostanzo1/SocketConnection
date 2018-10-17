@@ -19,7 +19,7 @@ interface DecodingFunction<T>{
 
 class MessageHandler {
 
-    private final Map<String, DecodingFunction<SocketConnection>> behavioursMap =new HashMap<>();
+    private static final Map<String, DecodingFunction<SocketConnection>> behavioursMap =new HashMap<>();
 
     private static Charset charset;
     private static String pingMessage;
@@ -27,42 +27,51 @@ class MessageHandler {
     private static String helloMessage;
     private static String serverIsReadyMessage;
     private static boolean configured=false;
-    private static final int DATA_TAG_POSITION =0;
-    private Predicate<String> inputIsDataType;
+    private static int dataTagPosition;
+    private static Predicate<String> inputIsDataType;
 
     /**
      * public constructor of MessageHandler. This class is a singleton
      */
     MessageHandler(){
-        getMessages();
-        setupBehaviour();
+        setup();
     }
 
     /**
-     * This method is used to define handler behaviour when is asked to handle a message received
+     * This method is used to setup the whole class
      */
-    private void setupBehaviour() {
-        behavioursMap.put(pingMessage, CSMHandler::handlePingMessage);
-        behavioursMap.put(helloMessage, CSMHandler::handleHelloMessage);
-        behavioursMap.put(serverIsReadyMessage, CSMHandler::handleServerIsReadyMessage);
-        inputIsDataType =
-                s->s!=null && s.length()>=dataMessage.length() &&
-                        s.substring(DATA_TAG_POSITION,dataMessage.length()+DATA_TAG_POSITION).equals(dataMessage);
+    private static synchronized void setup() {
+        if(!configured){
+            MessageHandlerConfigurations config= ConfigurationHandler.getInstance().getMessageHandlerConfigurations();
+            getMessages(config);
+            setupBehaviour();
+            configured=true;
+        }
     }
 
     /**
      * This method is used to setup strings used to define the type of messages
      */
-    private static synchronized void getMessages() {
-        if(!configured){
-            MessageHandlerConfigurations config= ConfigurationHandler.getInstance().getMessageHandlerConfigurations();
-            pingMessage=config.getPingMessage();
-            dataMessage=config.getDataMessage();
-            helloMessage=config.getHelloMessage();
-            charset=config.getCharset();
-            serverIsReadyMessage=config.getServerIsReadyMessage();
-            configured=true;
-        }
+    private static void getMessages(MessageHandlerConfigurations config) {
+        Objects.requireNonNull(config);
+        pingMessage=config.getPingMessage();
+        dataMessage=config.getDataMessage();
+        dataTagPosition=config.getDataTagPosition();
+        helloMessage=config.getHelloMessage();
+        charset=config.getCharset();
+        serverIsReadyMessage=config.getServerIsReadyMessage();
+    }
+
+    /**
+     * This method is used to define handler behaviour when is asked to handle a message received
+     */
+    private static void setupBehaviour() {
+        behavioursMap.put(pingMessage, CSMHandler::handlePingMessage);
+        behavioursMap.put(helloMessage, CSMHandler::handleHelloMessage);
+        behavioursMap.put(serverIsReadyMessage, CSMHandler::handleServerIsReadyMessage);
+        inputIsDataType =
+                s->s!=null && s.length()>=dataMessage.length() &&
+                        s.substring(dataTagPosition,dataMessage.length()+ dataTagPosition).equals(dataMessage);
     }
 
     /**
@@ -117,7 +126,7 @@ class MessageHandler {
     String computeOutput(String string){
         StringBuilder stringBuilder= new StringBuilder();
         stringBuilder.append(string);
-        stringBuilder.insert(DATA_TAG_POSITION, dataMessage);
+        stringBuilder.insert(dataTagPosition, dataMessage);
         return box(stringBuilder.toString());
     }
 
@@ -129,7 +138,7 @@ class MessageHandler {
     String computeOutput(int integer){
         StringBuilder stringBuilder= new StringBuilder();
         stringBuilder.append(integer);
-        stringBuilder.insert(DATA_TAG_POSITION, dataMessage);
+        stringBuilder.insert(dataTagPosition, dataMessage);
         return box(stringBuilder.toString());
     }
 
@@ -170,7 +179,7 @@ class MessageHandler {
      * @return dataTagPosition
      */
     int getDataTagPosition(){
-        return DATA_TAG_POSITION;
+        return dataTagPosition;
     }
 
     /**

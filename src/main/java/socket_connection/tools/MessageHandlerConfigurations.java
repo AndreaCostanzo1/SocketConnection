@@ -7,6 +7,7 @@ public class MessageHandlerConfigurations {
 
     private String pingMessage;
     private String dataMessage;
+    private int dataTagPosition;
     private String helloMessage;
     private String serverIsReadyMessage;
     private String charset;
@@ -17,6 +18,7 @@ public class MessageHandlerConfigurations {
         this.helloMessage ="#HELLO#";
         this.serverIsReadyMessage = "#SERVER_READY#";
         this.charset="UTF-8";
+        this.dataTagPosition=0;
     }
 
     @Contract(pure = true)
@@ -42,5 +44,10 @@ public class MessageHandlerConfigurations {
     @Contract(pure = true)
     public Charset getCharset() {
         return Charset.forName(charset);
+    }
+
+    @Contract(pure = true)
+    public int getDataTagPosition() {
+        return dataTagPosition;
     }
 }

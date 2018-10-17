@@ -37,9 +37,10 @@ jobs:
             - ~/.m2
           key: v1-dependencies-{{ checksum "pom.xml" }}
         
-      # run tests!
+      # run maven tests!
       - run: mvn integration-test
 
+      # download and start selenium
       - run:
           name: Download Selenium
           command: |

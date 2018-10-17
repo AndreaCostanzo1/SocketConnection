@@ -126,7 +126,8 @@ class SynchronizedDataBufferTest {
             } catch (BadMessagesSequenceException e) {
                 fail("Something went wrong");
             } catch (ShutDownException e){
-                assertTrue(Thread.currentThread().isInterrupted());
+                await("Waiting for thread to close properly").atMost(200, TimeUnit.MILLISECONDS )
+                        .untilAsserted(()->assertTrue(Thread.currentThread().isInterrupted()));
             }
         });
         thread.start();
@@ -134,8 +135,8 @@ class SynchronizedDataBufferTest {
                 .until(thread::getState,is(Thread.State.WAITING));
         //check if the thread is killed properly
         buffer.closeBuffer();
-        await("Waiting for thread to close properly").atMost(200, TimeUnit.MILLISECONDS )
-                .until(thread::getState,is(Thread.State.TERMINATED));
+        await("Waiting for thread to close properly").
+                until(thread::getState,is(Thread.State.TERMINATED));
     }
 
     @Test

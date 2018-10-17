@@ -5,6 +5,7 @@ import socket_connection.SocketUserAgentInterface;
 import socket_connection.socket_exceptions.runtime_exceptions.BadSetupException;
 
 import java.util.HashMap;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -36,12 +37,14 @@ public class ConnectionsHandler {
 
     /**
      * Add a connection to the map registering active connections and their relative user agent
-     * @param socket is the socket used to communicate
+     * @param connection is the socket used to communicate
      * @param runningAgent is the agent related to the given socket
      */
-    public void addConnection(SocketConnection socket, SocketUserAgentInterface runningAgent){
+    public void addConnection(SocketConnection connection, SocketUserAgentInterface runningAgent){
+        Objects.requireNonNull(connection);
+        Objects.requireNonNull(runningAgent);
         availableConnectionsLock.lock();
-        availableConnections.put(socket,runningAgent);
+        availableConnections.put(connection,runningAgent);
         activeConnections++;
         availableConnectionsLock.unlock();
     }
@@ -52,6 +55,7 @@ public class ConnectionsHandler {
      * @exception BadSetupException if the connection isn't in the hash map
      */
     public void removeConnection(SocketConnection connection) {
+        Objects.requireNonNull(connection);
         availableConnectionsLock.lock();
         if(!Optional.ofNullable(availableConnections.remove(connection)).isPresent()) throw new BadSetupException();
         else activeConnections--;

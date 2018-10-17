@@ -436,13 +436,13 @@ class ServerSocketConnectionTest {
         final int localPort=getPort();
         ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
         server.close();
-        await("Waiting for thread to close properly").atMost(200, TimeUnit.MILLISECONDS )
+        await("Waiting for thread to close properly").atMost(600, TimeUnit.MILLISECONDS )
                 .until(server::getState,is(Thread.State.WAITING));
 
         //Reopen the server
         server.open();
         //check server is RUNNABLE
-        await("Waiting for thread to re-open properly").atMost(200, TimeUnit.MILLISECONDS )
+        await("Waiting for thread to re-open properly").atMost(600, TimeUnit.MILLISECONDS )
                 .until(server::getState,is(Thread.State.RUNNABLE));
         //check that new connections can be opened
         try {

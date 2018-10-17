@@ -39,7 +39,7 @@ jobs:
         
       # run tests!
       - run: mvn integration-test
-      
+
       - run:
           name: Download Selenium
           command: |
@@ -47,6 +47,7 @@ jobs:
       - run:
           name: Start Selenium
           command: |
+            mkdir -p ~/test-reports/
             java -jar selenium-server-standalone-3.5.3.jar -log test-reports/selenium.log
           background: true
       # save test result
@@ -60,13 +61,3 @@ jobs:
           path: ~/junit
       - store_artifacts:
           path: ~/junit
-      - run:
-          name: Download Selenium
-          command: |
-            curl -O http://selenium-release.storage.googleapis.com/3.5/selenium-server-standalone-3.5.3.jar
-      - run:
-          name: Start Selenium
-          command: |
-            mkdir -p ~/test-reports/
-            java -jar selenium-server-standalone-3.5.3.jar -log ~/test-reports/selenium.log
-          background: true

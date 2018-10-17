@@ -39,8 +39,8 @@ jobs:
         
       # run tests!
       - run: mvn integration-test
-steps:
-      - run:
+	
+	- run:
           name: Save test results
           command: |
             mkdir -p ~/junit/
@@ -49,5 +49,5 @@ steps:
       - store_test_results:
           path: ~/junit
       - store_artifacts:
-          path: ~/junit    
+          path: ~/junit          
 

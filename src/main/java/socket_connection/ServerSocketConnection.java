@@ -3,7 +3,9 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import socket_connection.socket_exceptions.exceptions.*;
 import socket_connection.socket_exceptions.runtime_exceptions.BadSetupException;
+import socket_connection.tools.ConfigurationHandler;
 import socket_connection.tools.ConnectionsHandler;
+import socket_connection.tools.ServerSocketConnectionConfigurations;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -25,12 +27,11 @@ public class ServerSocketConnection extends Thread {
     private ReentrantLock serverStatusLock;
     private ExecutorService threadsHandler;
     private Condition serverStatusCondition;
-    private boolean shutdown;
-    private boolean isClosed;
     private Logger logger;
+    private Status currentStatus;
     private ServerSocket serverSocket;
-    private static final long SLEEP_IN_MS = 20;
-    private static long awaitExecutorInMS= 5000;
+    private long sleepInMs;
+    private long awaitExecutorInMs;
     public enum Status {
         /**
          * if the server is accepting incoming connections
@@ -97,13 +98,15 @@ public class ServerSocketConnection extends Thread {
      * Private constructor to initialize principal fields
      */
     private ServerSocketConnection(){
-        this.shutdown=false;
+        ServerSocketConnectionConfigurations config=ConfigurationHandler.getInstance().getServerSocketConnectionConfigurations();
+        this.sleepInMs=config.getSleepInMs();
+        this.awaitExecutorInMs=config.getAwaitExecutorInMs();
         this.connectionsHandler=new ConnectionsHandler();
         this.serverStatusLock =new ReentrantLock();
-        this.isClosed=false;
         this.serverStatusCondition =serverStatusLock.newCondition();
         this.threadsHandler= Executors.newCachedThreadPool();
         this.logger=Logger.getLogger(ServerSocketConnection.class.toString()+"%u");
+        this.currentStatus=Status.WAITING_LAUNCH;
     }
 
     /**
@@ -112,7 +115,7 @@ public class ServerSocketConnection extends Thread {
     @Override
     public void run(){
         serverStatusLock.lock();
-        while (!shutdown){
+        while (currentStatus!=Status.SHUT_DOWN){
             serverStatusLock.unlock();
             delay();
             handleIncomingConnections();
@@ -128,7 +131,7 @@ public class ServerSocketConnection extends Thread {
     private void tearDownProtocol() {
         connectionsHandler.shutdownAllConnections();
         try {
-            threadsHandler.awaitTermination(awaitExecutorInMS, TimeUnit.MILLISECONDS);
+            threadsHandler.awaitTermination(awaitExecutorInMs, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -142,7 +145,7 @@ public class ServerSocketConnection extends Thread {
      */
     private void delay() {
         try {
-            Thread.sleep(SLEEP_IN_MS);
+            Thread.sleep(sleepInMs);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -203,9 +206,9 @@ public class ServerSocketConnection extends Thread {
      */
     private void handleThrown() {
         serverStatusLock.lock();
-        if(!shutdown&&isClosed){
+        if(currentStatus==Status.CLOSED){
             closeServer();
-        }else if(!shutdown){
+        }else if(currentStatus!=Status.SHUT_DOWN){
             serverStatusLock.unlock();
             throw new BadSetupException();
         }
@@ -219,7 +222,7 @@ public class ServerSocketConnection extends Thread {
      */
     private void closeServer() {
         if(!serverStatusLock.isHeldByCurrentThread()) throw new BadSetupException();
-        while (isClosed&&!shutdown){
+        while (currentStatus==Status.CLOSED){
             try {
                 serverStatusCondition.await();
             } catch (InterruptedException e) {
@@ -241,12 +244,12 @@ public class ServerSocketConnection extends Thread {
     public void close() throws ServerAlreadyClosedException, ServerShutdownException {
         checkIfShutDown();
         serverStatusLock.lock();
-        if(isClosed){
+        if(currentStatus==Status.CLOSED){
             serverStatusLock.unlock();
             throw new ServerAlreadyClosedException();
         }else {
             closeServerSocket();
-            isClosed=true;
+            currentStatus=Status.CLOSED;
             serverStatusLock.unlock();
         }
     }
@@ -265,13 +268,13 @@ public class ServerSocketConnection extends Thread {
     public void open() throws ServerAlreadyOpenedException, ServerShutdownException {
         checkIfShutDown();
         serverStatusLock.lock();
-        if (!isClosed) {
+        if (currentStatus!=Status.CLOSED) {
             serverStatusLock.unlock();
             throw new ServerAlreadyOpenedException();
         } else {
             openServerSocket();
+            currentStatus=Status.RUNNING;
             serverStatusCondition.signal();
-            isClosed = false;
             serverStatusLock.unlock();
         }
     }
@@ -287,11 +290,10 @@ public class ServerSocketConnection extends Thread {
     @SuppressWarnings("WeakerAccess")
     public void shutdown() throws ServerShutdownException {
         serverStatusLock.lock();
-        if(!shutdown) {
+        if(currentStatus!=Status.SHUT_DOWN) {
             this.interrupt();
             closeServerSocket();
-            shutdown=true;
-            isClosed=false;
+            currentStatus=Status.SHUT_DOWN;
             serverStatusLock.unlock();
         } else{
             serverStatusLock.unlock();
@@ -333,7 +335,7 @@ public class ServerSocketConnection extends Thread {
     private void checkIfShutDown() throws ServerShutdownException {
         serverStatusLock.lock();
         Optional<ServerShutdownException> shutdownNotification=
-                Optional.ofNullable(shutdown ? new ServerShutdownException() : null);
+                Optional.ofNullable(currentStatus==Status.SHUT_DOWN ? new ServerShutdownException() : null);
         serverStatusLock.unlock();
         if (shutdownNotification.isPresent()) throw shutdownNotification.get();
     }
@@ -352,14 +354,10 @@ public class ServerSocketConnection extends Thread {
      */
     @SuppressWarnings("WeakerAccess") @Contract(pure = true)
     public Status getStatus() {
-        if(this.getState().equals(Thread.State.NEW)) return Status.WAITING_LAUNCH;
-        try {
-            checkIfShutDown();
-            return isClosed() ?
-                    Status.CLOSED : Status.RUNNING;
-        } catch (ServerShutdownException e) {
-            return Status.SHUT_DOWN;
-        }
+        serverStatusLock.lock();
+        Status toReturn=currentStatus;
+        serverStatusLock.unlock();
+        return toReturn;
     }
 
     /**
@@ -368,7 +366,7 @@ public class ServerSocketConnection extends Thread {
      */
     private boolean isClosed(){
         serverStatusLock.lock();
-        boolean closed=isClosed;
+        boolean closed=(currentStatus==Status.CLOSED);
         serverStatusLock.unlock();
         return closed;
     }
@@ -379,5 +377,18 @@ public class ServerSocketConnection extends Thread {
     @SuppressWarnings("WeakerAccess")
     public int activeConnections(){
         return connectionsHandler.activeConnections();
+    }
+
+
+    /**
+     * Override of Thread's start.
+     * The status of the server is set to {@link Status#RUNNING}
+     */
+    @Override
+    public void start(){
+        serverStatusLock.lock();
+        super.start();
+        this.currentStatus=Status.RUNNING;
+        serverStatusLock.unlock();
     }
 }

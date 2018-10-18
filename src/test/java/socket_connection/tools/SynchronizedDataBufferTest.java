@@ -126,7 +126,7 @@ class SynchronizedDataBufferTest {
             } catch (BadMessagesSequenceException e) {
                 fail("Something went wrong");
             } catch (ShutDownException e){
-                await("Waiting for thread to close properly").atMost(200, TimeUnit.MILLISECONDS )
+                await("Waiting for thread to close properly").atMost(600, TimeUnit.MILLISECONDS )
                         .untilAsserted(()->assertTrue(Thread.currentThread().isInterrupted()));
             }
         });

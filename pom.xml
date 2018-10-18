@@ -104,7 +104,7 @@
 
     <packaging>jar</packaging>
 
-    <name>LM56</name>
+    <name>Utils</name>
     <url>http://maven.apache.org</url>
 
     <properties>

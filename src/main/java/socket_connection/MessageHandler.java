@@ -6,6 +6,7 @@ import com.google.gson.JsonSyntaxException;
 import socket_connection.socket_exceptions.runtime_exceptions.UndefinedInputTypeException;
 import socket_connection.socket_exceptions.runtime_exceptions.BadSetupException;
 import socket_connection.tools.ConfigurationHandler;
+import socket_connection.tools.DataFormatter;
 import socket_connection.tools.MessageHandlerConfigurations;
 
 import java.nio.charset.Charset;
@@ -83,7 +84,7 @@ class MessageHandler {
      * @exception UndefinedInputTypeException thrown if the input isn't a data nor a defined-type message
      */
     void computeInput(SocketConnection connection, String input){
-        String data = unBox(input);
+        String data = DataFormatter.unBox(input,charset);
         if(inputIsDataType.test(data))
             handleDataInput(connection,data);
         else
@@ -127,7 +128,7 @@ class MessageHandler {
         StringBuilder stringBuilder= new StringBuilder();
         stringBuilder.append(string);
         stringBuilder.insert(dataTagPosition, dataMessage);
-        return box(stringBuilder.toString());
+        return DataFormatter.box(stringBuilder.toString(),charset);
     }
 
     /**
@@ -139,31 +140,7 @@ class MessageHandler {
         StringBuilder stringBuilder= new StringBuilder();
         stringBuilder.append(integer);
         stringBuilder.insert(dataTagPosition, dataMessage);
-        return box(stringBuilder.toString());
-    }
-
-    /**
-     * @param data containing data to box
-     * @return a string containing data as bytes
-     */
-    private String box(String data){
-        Gson gson= new Gson();
-        return gson.toJson(data.getBytes(charset));
-    }
-
-    /**
-     * @param data containing data to box
-     * @return a string containing data as bytes
-     * @exception UndefinedInputTypeException is launched if the string received isn't a bytes representation of
-     * something
-     */
-    private String unBox(String data){
-        Gson gson= new Gson();
-        try {
-            return new String(gson.fromJson(data, byte[].class), charset);
-        }catch (JsonSyntaxException e){
-            throw new UndefinedInputTypeException();
-        }
+        return DataFormatter.box(stringBuilder.toString(),charset);
     }
 
     /**
@@ -195,7 +172,7 @@ class MessageHandler {
      * @return pingMessage
      */
     String getPingMessage(){
-        return box(pingMessage);
+        return DataFormatter.box(pingMessage,charset);
     }
 
     /**
@@ -203,7 +180,7 @@ class MessageHandler {
      * @return helloMessage
      */
     String getHelloMessage() {
-        return box(helloMessage);
+        return DataFormatter.box(helloMessage,charset);
     }
 
     /**
@@ -211,7 +188,7 @@ class MessageHandler {
      * @return serverIsReadyMessage
      */
     String getServerIsReadyMessage() {
-        return box(serverIsReadyMessage);
+        return DataFormatter.box(serverIsReadyMessage,charset);
     }
 
     /**

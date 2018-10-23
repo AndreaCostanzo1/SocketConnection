@@ -6,13 +6,7 @@ import socket_connection.socket_exceptions.exceptions.UnreachableHostException;
 import socket_connection.socket_exceptions.runtime_exceptions.NotifyServerException;
 import socket_connection.socket_exceptions.runtime_exceptions.ShutDownException;
 import socket_connection.socket_exceptions.runtime_exceptions.UndefinedInputTypeException;
-import socket_connection.tools.ConfigurationHandler;
-import socket_connection.tools.ConnectionTimer;
-import socket_connection.tools.SocketConnectionConfigurations;
-import socket_connection.tools.SynchronizedDataBuffer;
-
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import socket_connection.tools.*;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
@@ -26,16 +20,14 @@ public class SocketConnection extends Thread{
 
     private Socket socket;
     private ServerSocketConnection handlingServer;
-    private DataInputStream inputStream;
-    private DataOutputStream outputStream;
     private SynchronizedDataBuffer synchronizedBuffer;
+    private SocketStreamsHandler socketStreamsHandler;
     private ConnectionTimer timer;
     private boolean shutdown;
     private boolean active;
     private boolean ready;
     private boolean serverSide;
     private Lock statusLock;
-    private Lock outputStreamLock;
     private Condition statusCondition;
     private MessageHandler messageHandler;
 
@@ -54,7 +46,6 @@ public class SocketConnection extends Thread{
         this.messageHandler= new MessageHandler();
         this.statusLock =new ReentrantLock();
         this.statusCondition=statusLock.newCondition();
-        this.outputStreamLock=new ReentrantLock();
         this.timer=new ConnectionTimer(this);
         shutdown=false;
         ready=false;
@@ -74,7 +65,7 @@ public class SocketConnection extends Thread{
         this.active=false;
         this.handlingServer=server;
         this.socket=socket;
-        getStreams();
+        this.socketStreamsHandler= new SocketStreamsHandler(socket);
         this.start();
     }
 
@@ -94,7 +85,7 @@ public class SocketConnection extends Thread{
         } catch (IOException e) {
             throw new FailedToConnectException();
         }
-        getStreams();
+        this.socketStreamsHandler= new SocketStreamsHandler(socket);
         this.start();
     }
 
@@ -109,19 +100,7 @@ public class SocketConnection extends Thread{
         this.timeToLive =config.getTimeToLive();
     }
 
-    /**
-     * This method is used to get the streams relative to
-     * the socket where the connection is opened
-     * @throws FailedToConnectException if the host/server is unreachable
-     */
-    private void getStreams() throws FailedToConnectException {
-        try {
-            inputStream= new DataInputStream(socket.getInputStream());
-            outputStream=new DataOutputStream(socket.getOutputStream());
-        } catch (IOException e) {
-            throw new FailedToConnectException();
-        }
-    }
+
 
     /**
      * The thread started to handle the connection
@@ -163,14 +142,7 @@ public class SocketConnection extends Thread{
      * @throws IOException if the server is unreachable
      */
     private void sendHelloToServer() throws IOException {
-        try{
-            outputStreamLock.lock();
-            outputStream.writeUTF(messageHandler.getHelloMessage());
-        } catch (IOException e){
-            throw new IOException(e);
-        } finally {
-            outputStreamLock.unlock();
-        }
+        socketStreamsHandler.writeUTF(messageHandler.getHelloMessage());
     }
 
     /**
@@ -182,7 +154,7 @@ public class SocketConnection extends Thread{
         statusLock.lock();
         while (!ready){
             statusLock.unlock();
-            String input=inputStream.readUTF();
+            String input=socketStreamsHandler.aSyncReadUTF();
             checkRemoteMessage(input);
             statusLock.lock();
         }
@@ -208,14 +180,11 @@ public class SocketConnection extends Thread{
     private void handleServerSideSetup() {
         waitForServerNotification();
         try {
-            String expectedHello=inputStream.readUTF();
+            String expectedHello=socketStreamsHandler.aSyncReadUTF();
             messageHandler.computeInput(this, expectedHello);
-            outputStreamLock.lock();
-            outputStream.writeUTF(messageHandler.getServerIsReadyMessage());
+            socketStreamsHandler.writeUTF(messageHandler.getServerIsReadyMessage());
         } catch (IOException e) {
             shutdown();
-        } finally {
-            outputStreamLock.unlock();
         }
 
     }
@@ -282,12 +251,9 @@ public class SocketConnection extends Thread{
      */
     private void ping() {
         try {
-            outputStreamLock.lock();
-            outputStream.writeUTF(messageHandler.getPingMessage());
+            socketStreamsHandler.writeUTF(messageHandler.getPingMessage());
         } catch (IOException e) {
             shutdown();
-        } finally {
-            outputStreamLock.unlock();
         }
     }
 
@@ -299,9 +265,9 @@ public class SocketConnection extends Thread{
     private void computeInputs() {
         int currentRead=0;
         try {
-            while (inputStream.available()>0&&(enabledMaxReads &&currentRead< maxReads)){
+            while (socketStreamsHandler.availableData()>0&&(enabledMaxReads &&currentRead< maxReads)){
                 currentRead++;
-                String string= inputStream.readUTF();
+                String string= socketStreamsHandler.aSyncReadUTF();
                 messageHandler.computeInput(this,string);
             }
         } catch (IOException e) {
@@ -357,12 +323,9 @@ public class SocketConnection extends Thread{
      */
     private void sendData(String toSend) throws UnreachableHostException {
         try {
-            outputStreamLock.lock();
-            outputStream.writeUTF(toSend);
+            socketStreamsHandler.writeUTF(toSend);
         } catch (IOException e) {
             throw new UnreachableHostException();
-        } finally {
-            outputStreamLock.unlock();
         }
     }
 

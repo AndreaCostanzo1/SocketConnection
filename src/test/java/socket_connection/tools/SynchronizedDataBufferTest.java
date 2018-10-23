@@ -120,19 +120,36 @@ class SynchronizedDataBufferTest {
     void testSleepIfBufferIsEmpty2(){
         SynchronizedDataBuffer buffer= new SynchronizedDataBuffer();
         //this thread will ask to pop an int when the buffer is empty,
-        Thread thread= new Thread(() -> {
+        Thread thread;
+        Runnable action= () -> {
             try {
                 buffer.popInt();
             } catch (BadMessagesSequenceException e) {
                 fail("Something went wrong");
-            } catch (ShutDownException e){
-                await("Waiting for thread to close properly").atMost(600, TimeUnit.MILLISECONDS )
-                        .untilAsserted(()->assertTrue(Thread.currentThread().isInterrupted()));
             }
-        });
-        thread.start();
-        await("Waiting for Waiting status of thread").atMost(200, TimeUnit.MILLISECONDS )
-                .until(thread::getState,is(Thread.State.WAITING));
+        };
+
+        /* buffer.popInt can be interrupted and interruption calls a shutDownException
+         * we want to test a feature that can't be tested if an interruption occur, so
+         * we reRun the test if a shutdown is thrown.
+         * count is an integer value used to avoid an infinite test. After ten trials
+         * the test fails.
+         */
+        boolean reRun;
+        int count=0;
+        do{
+            count++;
+            reRun=false;
+            thread=new Thread(action);
+            try{
+                thread.start();
+                await("Waiting for Waiting status of thread").atMost(200, TimeUnit.MILLISECONDS )
+                        .until(thread::getState,is(Thread.State.WAITING));
+            }catch (ShutDownException e){
+                reRun=true;
+            }
+            if(count>10) fail("Too many thrown");
+        }while (reRun);
         //check if the thread is killed properly
         buffer.closeBuffer();
         await("Waiting for thread to close properly").

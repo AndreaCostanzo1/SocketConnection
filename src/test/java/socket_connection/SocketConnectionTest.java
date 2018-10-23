@@ -15,12 +15,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static junit.framework.TestCase.assertTrue;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 
 class SocketConnectionTest {
 
@@ -177,7 +174,7 @@ class SocketConnectionTest {
     @Test
     void getPingTest() throws FailedToConnectException, UnreachableHostException {
         SocketConnection connection= new SocketConnection(InetAddress.getLoopbackAddress().getHostAddress(), PORT1);
-        connection.getPing();
+        if(connection.getPing()<0) fail("This condition should be impossible");
     }
 
     /**

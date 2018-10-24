@@ -121,13 +121,6 @@ class SynchronizedDataBufferTest {
         SynchronizedDataBuffer buffer= new SynchronizedDataBuffer();
         //this thread will ask to pop an int when the buffer is empty,
         Thread thread;
-        Runnable action= () -> {
-            try {
-                buffer.popInt();
-            } catch (BadMessagesSequenceException e) {
-                fail("Something went wrong");
-            }
-        };
 
         /* buffer.popInt can be interrupted and interruption calls a shutDownException
          * we want to test a feature that can't be tested if an interruption occur, so
@@ -140,20 +133,27 @@ class SynchronizedDataBufferTest {
         do{
             count++;
             reRun=false;
-            thread=new Thread(action);
             try{
+                thread=new Thread(() -> {
+                    try {
+                        buffer.popInt();
+                    } catch (BadMessagesSequenceException e) {
+                        fail("Something went wrong");
+                    }
+                });
                 thread.start();
                 await("Waiting for Waiting status of thread").atMost(200, TimeUnit.MILLISECONDS )
                         .until(thread::getState,is(Thread.State.WAITING));
+                buffer.closeBuffer();
+                await("Waiting for thread to close properly").
+                        until(thread::getState,is(Thread.State.TERMINATED));
             }catch (ShutDownException e){
                 reRun=true;
             }
             if(count>10) fail("Too many thrown");
         }while (reRun);
         //check if the thread is killed properly
-        buffer.closeBuffer();
-        await("Waiting for thread to close properly").
-                until(thread::getState,is(Thread.State.TERMINATED));
+
     }
 
     @Test

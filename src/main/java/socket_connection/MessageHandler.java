@@ -1,10 +1,11 @@
 package socket_connection;
 
 
-import com.google.gson.Gson;
-import com.google.gson.JsonSyntaxException;
+import socket_connection.socket_exceptions.runtime_exceptions.socket_connection_events.ConnectionEventException;
+import socket_connection.socket_exceptions.runtime_exceptions.socket_connection_events.DataReceivedException;
 import socket_connection.socket_exceptions.runtime_exceptions.UndefinedInputTypeException;
-import socket_connection.socket_exceptions.runtime_exceptions.BadSetupException;
+import socket_connection.socket_exceptions.runtime_exceptions.socket_connection_events.HelloEventException;
+import socket_connection.socket_exceptions.runtime_exceptions.socket_connection_events.ServerReadyException;
 import socket_connection.tools.ConfigurationHandler;
 import socket_connection.tools.DataFormatter;
 import socket_connection.tools.MessageHandlerConfigurations;
@@ -13,15 +14,11 @@ import java.nio.charset.Charset;
 import java.util.*;
 import java.util.function.Predicate;
 
-@FunctionalInterface
-interface DecodingFunction<T>{
-    void run(T t);
-}
+
 
 class MessageHandler {
 
-    private static final Map<String, DecodingFunction<SocketConnection>> behavioursMap =new HashMap<>();
-
+    private static final Map<String, Optional<DecodingFunction<MessageHandler,String>>> behavioursMap =new HashMap<>();
     private static Charset charset;
     private static String pingMessage;
     private static String dataMessage;
@@ -30,6 +27,38 @@ class MessageHandler {
     private static boolean configured=false;
     private static int dataTagPosition;
     private static Predicate<String> inputIsDataType;
+    /**
+     * This class work is to handle all kind of defined-type messages that are used
+     * from SocketConnection to getInstance, to check if the connection is still active and
+     * other stuff.
+     *
+     * CSM means ConnectionStatusMessages
+     */
+    private static final class ConnectionMessagesHandler{
+        private ConnectionMessagesHandler(){
+            throw new AssertionError();
+        }
+
+        /**
+         * This method handles a hello message from the client
+         * @param handler which received the message
+         */
+        static void handleHelloMessage(MessageHandler handler,String input){
+            throw new HelloEventException(input); // FIXME: 24/10/2018 compute input
+        }
+
+        /**
+         * This method handles the message sent from the server to notify client that
+         * it's ready
+         * @param handler which received the message
+         */
+        static void handleServerIsReadyMessage(MessageHandler handler,String input) {
+            throw new ServerReadyException(input); // FIXME: 24/10/2018 compute input
+        }
+
+    }
+
+
 
     /**
      * public constructor of MessageHandler. This class is a singleton
@@ -67,9 +96,9 @@ class MessageHandler {
      * This method is used to define handler behaviour when is asked to handle a message received
      */
     private static void setupBehaviour() {
-        behavioursMap.put(pingMessage, CSMHandler::handlePingMessage);
-        behavioursMap.put(helloMessage, CSMHandler::handleHelloMessage);
-        behavioursMap.put(serverIsReadyMessage, CSMHandler::handleServerIsReadyMessage);
+        behavioursMap.put(pingMessage, Optional.empty());
+        behavioursMap.put(helloMessage, Optional.of(ConnectionMessagesHandler::handleHelloMessage));
+        behavioursMap.put(serverIsReadyMessage, Optional.of(ConnectionMessagesHandler::handleServerIsReadyMessage));
         inputIsDataType =
                 s->s!=null && s.length()>=dataMessage.length() &&
                         s.substring(dataTagPosition,dataMessage.length()+ dataTagPosition).equals(dataMessage);
@@ -79,44 +108,43 @@ class MessageHandler {
      * This method valuate if the input is a ping message or not:
      * ping messages reset TTL of the socket
      * data messages are added to the buffer of the asking connection
-     * @param connection is the connection who requested to compute an input
      * @param input to be computed
      * @exception UndefinedInputTypeException thrown if the input isn't a data nor a defined-type message
      */
-    void computeInput(SocketConnection connection, String input){
+    void computeInput(String input) throws ConnectionEventException{
         String data = DataFormatter.unBox(input,charset);
         if(inputIsDataType.test(data))
-            handleDataInput(connection,data);
+            handleDataInput(data);
         else
-            handleOthersInputs(connection,data);
+            handleOthersInputs(data);
     }
 
     /**
      * This method is used to refactor data messages and add them to buffer
-     * @param connection is the connection who requested to compute an input
      * @param input to be computed
+     * @exception DataReceivedException is thrown to let the respective
+     *                                  connection knows about this event
      */
-    private void handleDataInput(SocketConnection connection,String input) {
+    private void handleDataInput(String input) {
         String data=input.replace(dataMessage,"");
-        connection.addToBuffer(data);
-        connection.resetTTL();
+        throw new DataReceivedException(data);
     }
 
     /**
      * This method is used to handle non data messages
-     * @param connection is the connection who requested to compute an input
      * @param input to be computed
      * @exception UndefinedInputTypeException thrown if the input isn't a data nor a defined-type message
-     * @exception BadSetupException look at:
-     * {@link CSMHandler#handleHelloMessage(SocketConnection)}
-     * {@link CSMHandler#handleServerIsReadyMessage(SocketConnection)}
+     * @exception ConnectionEventException can be thrown after a event
+     *                                     connection knows about this event
      */
-    private void handleOthersInputs(SocketConnection connection, String input) {
-        Optional<DecodingFunction<SocketConnection>> decodingFunction= Optional.ofNullable(behavioursMap.getOrDefault(input, null));
-        decodingFunction.ifPresentOrElse(
-                function->function.run(connection), /*if present*/
-                ()->{throw new UndefinedInputTypeException(); /*if not present*/
-                });
+    private void handleOthersInputs(String input) throws ConnectionEventException {
+        Optional<Optional<DecodingFunction<MessageHandler,String>>> handler=
+                Optional.ofNullable(behavioursMap.getOrDefault(input, null));
+        if(handler.isPresent()){
+            handler.get().ifPresent(decodingFunction -> decodingFunction.run(this,input));
+        } else {
+            throw new UndefinedInputTypeException();
+        }
     }
 
     /**
@@ -197,4 +225,9 @@ class MessageHandler {
     Charset getUsedCharset(){
         return charset;
     }
+}
+
+@FunctionalInterface
+interface DecodingFunction<T,R>{
+    void run(T t, R r);
 }

@@ -3,13 +3,18 @@ package socket_connection;
 import socket_connection.socket_exceptions.exceptions.BadMessagesSequenceException;
 import socket_connection.socket_exceptions.exceptions.FailedToConnectException;
 import socket_connection.socket_exceptions.exceptions.UnreachableHostException;
-import socket_connection.socket_exceptions.runtime_exceptions.NotifyServerException;
-import socket_connection.socket_exceptions.runtime_exceptions.ShutDownException;
+import socket_connection.socket_exceptions.runtime_exceptions.*;
+import socket_connection.socket_exceptions.runtime_exceptions.socket_connection_events.ConnectionEventException;
+import socket_connection.socket_exceptions.runtime_exceptions.socket_connection_events.DataReceivedException;
+import socket_connection.socket_exceptions.runtime_exceptions.socket_connection_events.HelloEventException;
 import socket_connection.socket_exceptions.runtime_exceptions.UndefinedInputTypeException;
+import socket_connection.socket_exceptions.runtime_exceptions.socket_connection_events.ServerReadyException;
 import socket_connection.tools.*;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -30,7 +35,13 @@ public class SocketConnection extends Thread{
     private Lock statusLock;
     private Condition statusCondition;
     private MessageHandler messageHandler;
-
+    private static Map<Class<? extends ConnectionEventException>, eventComputer<SocketConnection,ConnectionEventException>> eventAdministrator=
+            new HashMap<>();
+    static {
+        eventAdministrator.put(DataReceivedException.class,EventAdministrator::handleDataReception);
+        eventAdministrator.put(HelloEventException.class,EventAdministrator::handleHelloMessage);
+        eventAdministrator.put(ServerReadyException.class,EventAdministrator::handleServerIsReadyMessage);
+    }
     private long delayInMs;
     private int maxReads;
     private boolean enabledMaxReads;
@@ -155,24 +166,12 @@ public class SocketConnection extends Thread{
         while (!ready){
             statusLock.unlock();
             String input=socketStreamsHandler.aSyncReadUTF();
-            checkRemoteMessage(input);
+            computeRemoteInput(input);
             statusLock.lock();
         }
         statusLock.unlock();
     }
 
-    /**
-     * This method computes each input passed.
-     * @param input to be computed
-     * @exception UndefinedInputTypeException thrown if an undefined message is received
-     */
-    private void checkRemoteMessage(String input) {
-        try {
-            messageHandler.computeInput(this,input);
-        } catch (UndefinedInputTypeException e){
-            throw new UndefinedInputTypeException();
-        }
-    }
 
     /**
      * This method handles getInstance for server-side SocketConnection
@@ -181,13 +180,29 @@ public class SocketConnection extends Thread{
         waitForServerNotification();
         try {
             String expectedHello=socketStreamsHandler.aSyncReadUTF();
-            messageHandler.computeInput(this, expectedHello);
+            computeRemoteInput(expectedHello);
             socketStreamsHandler.writeUTF(messageHandler.getServerIsReadyMessage());
         } catch (IOException e) {
             shutdown();
         }
-
     }
+
+    /**
+     * This method computes each input passed.
+     * @param remoteInput to be computed
+     * @exception UndefinedInputTypeException thrown if an undefined message is received
+     * @see MessageHandler#computeInput(String)
+     */
+    private void computeRemoteInput(String remoteInput){
+        try{
+            messageHandler.computeInput(remoteInput);
+            this.resetTTL();
+        } catch (ConnectionEventException e){
+            Optional.ofNullable(eventAdministrator.get(e.getClass()))
+                    .ifPresent(eventHandler-> eventHandler.computeEvent(this, e));
+        }
+    }
+
 
     /**
      * This method is used to wait that server notify this connection
@@ -268,7 +283,7 @@ public class SocketConnection extends Thread{
             while (socketStreamsHandler.availableData()>0&&(enabledMaxReads &&currentRead< maxReads)){
                 currentRead++;
                 String string= socketStreamsHandler.aSyncReadUTF();
-                messageHandler.computeInput(this,string);
+                computeRemoteInput(string);
             }
         } catch (IOException e) {
             shutdown();
@@ -376,7 +391,7 @@ public class SocketConnection extends Thread{
      * This method is used to add data-type message to the {@link #synchronizedBuffer}
      * @param data to be added
      */
-    void addToBuffer(String data) {
+    private void addToBuffer(String data) {
         synchronizedBuffer.put(data);
     }
 
@@ -438,7 +453,7 @@ public class SocketConnection extends Thread{
     /**
      * @return true if the connection is handled by a server, false in the other case.
      */
-    boolean isServerSide() {
+    private boolean isServerSide() {
         return serverSide;
     }
 
@@ -471,7 +486,7 @@ public class SocketConnection extends Thread{
      * This method is used to set {@link #ready}== true:
      * this means that the getInstance phase is ended.
      */
-    void setToReady(){
+    private void setToReady(){
         statusLock.lock();
         ready=true;
         statusCondition.signalAll();
@@ -496,4 +511,42 @@ public class SocketConnection extends Thread{
     public int getTimeToLive() {
         return timeToLive;
     }
+
+    private static class EventAdministrator {
+        /**
+         * This method handles a server is ready event
+         * @param connection is the connection which registered the event
+         * @param e the event registered
+         */
+        private static void handleServerIsReadyMessage(SocketConnection connection, ConnectionEventException e){
+            if(connection.isServerSide()|| connection.isReady()) throw new BadSetupException();
+            connection.setToReady();
+        }
+
+        /**
+         * This method handles a data received event
+         * @param connection is the connection which registered the event
+         * @param e the event registered
+         */
+        private static void handleDataReception(SocketConnection connection, ConnectionEventException e) {
+            connection.addToBuffer(e.getEventData());
+        }
+
+        /**
+         * This method handles a hello event
+         * @param connection is the connection which registered the event
+         * @param e the event registered
+         * @exception BadSetupException is thrown if:
+         *          1-> is received by server
+         */
+        private static void handleHelloMessage(SocketConnection connection, ConnectionEventException e) {
+            if(!connection.isServerSide()|| connection.isReady()) throw new BadSetupException();
+            connection.setToReady();
+        }
+    }
+}
+
+@FunctionalInterface
+interface eventComputer<T,R>{
+    void computeEvent(T t, R r);
 }

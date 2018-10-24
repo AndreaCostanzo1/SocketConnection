@@ -18,17 +18,6 @@ import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class SocketCommTemplate extends SocketConnection{
-    SocketCommTemplate(){
-        super();
-        super.setToReady();
-    }
-
-    @Override @SuppressWarnings("all")
-    void resetTTL(){
-    }
-}
-
 @FunctionalInterface
 interface TriFunction<A,B,C,D>{
     A compute(B b,C c,D d);

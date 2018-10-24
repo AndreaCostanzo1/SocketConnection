@@ -6,11 +6,15 @@ import org.junit.jupiter.api.Test;
 import socket_connection.socket_exceptions.runtime_exceptions.BadSetupException;
 import socket_connection.socket_exceptions.runtime_exceptions.UndefinedInputTypeException;
 import socket_connection.socket_exceptions.exceptions.UnreachableHostException;
+import socket_connection.socket_exceptions.runtime_exceptions.socket_connection_events.DataReceivedException;
 import socket_connection.tools.ConfigurationHandler;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -149,10 +153,14 @@ class MessageHandlerTest {
     void computeInputWithDefaultComputedDataType() throws UnreachableHostException {
         String message="Random message";
         String computedMessage=messageHandler.computeOutput(message);
-        SocketConnection mockSocket= new SocketCommTemplate();
-        messageHandler.computeInput(mockSocket, computedMessage);
-        String elaboratedMessage= mockSocket.readData();
-        assertEquals(message,elaboratedMessage);
+        //check that the expected exception is thrown
+        assertThrows(DataReceivedException.class,
+                ()->messageHandler.computeInput(computedMessage));
+        try{
+            messageHandler.computeInput(computedMessage);
+        } catch (DataReceivedException e){
+            assertEquals(message,e.getEventData());
+        }
     }
 
     /**
@@ -162,9 +170,8 @@ class MessageHandlerTest {
     @Test
     void undefinedMessage(){
         String undefinedMessage="undefined";
-        SocketConnection mockSocket= new SocketCommTemplate();
         assertThrows(UndefinedInputTypeException.class,
-                ()->messageHandler.computeInput(mockSocket,undefinedMessage));
+                ()->messageHandler.computeInput(undefinedMessage));
     }
 
     /**
@@ -174,9 +181,8 @@ class MessageHandlerTest {
     @Test
     void undefinedEncodedMessage(){
         String undefinedMessage=new Gson().toJson(("undefined").getBytes(messageHandler.getUsedCharset()));
-        SocketConnection mockSocket= new SocketCommTemplate();
         assertThrows(UndefinedInputTypeException.class,
-                ()->messageHandler.computeInput(mockSocket,undefinedMessage));
+                ()->messageHandler.computeInput(undefinedMessage));
     }
 
     /**
@@ -184,12 +190,12 @@ class MessageHandlerTest {
      */
     @Test
     void checkCorrectComputationNonDataTypeDefinedMessages(){
-        Map<String,SocketConnection> messagesToTest= new HashMap<>();
-        messagesToTest.put(messageHandler.getPingMessage(), new SocketCommTemplate());
-        messagesToTest.put(messageHandler.getHelloMessage(), new SocketCommTemplate());
-        messagesToTest.put(messageHandler.getServerIsReadyMessage(), new SocketCommTemplate());
-        messagesToTest.keySet().forEach(message->assertFalse(messageHandler.getInputIsDataType().test(message)));
-        messagesToTest.forEach((message,client)->assertNoExceptionThrown(messageHandler::computeInput,BadSetupException.class).accept(client, message));
+        Set<String> messagesToTest= new HashSet<>();
+        messagesToTest.add(messageHandler.getPingMessage());
+        messagesToTest.add(messageHandler.getHelloMessage());
+        messagesToTest.add(messageHandler.getServerIsReadyMessage());
+        messagesToTest.forEach(message->assertFalse(messageHandler.getInputIsDataType().test(message)));
+        messagesToTest.forEach(message->assertNoExceptionThrown(messageHandler::computeInput,BadSetupException.class).accept(message));
     }
 
     //---------------------------------------------------------------------------------------
@@ -204,10 +210,10 @@ class MessageHandlerTest {
      * @param filterException avoid throwing of the exception passed.
      */
     @SuppressWarnings("all")
-    private <T,R, E extends Exception> BiConsumer<T,R> assertNoExceptionThrown(BiConsumer<T, R> methodToCheck, Class<E> filterException) {
-        return (i, j) -> {
+    private <T, E extends Exception> Consumer<T> assertNoExceptionThrown(Consumer<T> methodToCheck, Class<E> filterException) {
+        return i -> {
             try{
-                methodToCheck.accept(i, j);
+                methodToCheck.accept(i);
             }catch (Exception e){
                 try{
                     filterException.cast(e);

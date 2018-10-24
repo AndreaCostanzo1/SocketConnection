@@ -51,7 +51,7 @@ public class SocketConnection extends Thread{
      * Package-private constructor: this is used from others constructors
      * to initialize some fields.
      */
-    SocketConnection(){
+    private SocketConnection(){
         setupConfigurations();
         this.synchronizedBuffer =new SynchronizedDataBuffer();
         this.messageHandler= new MessageHandler();
@@ -398,7 +398,7 @@ public class SocketConnection extends Thread{
     /**
      * Reset the timer checking for timeouts due to disconnections.
      */
-    void resetTTL() {
+    private void resetTTL() {
         timer.resetTTL();
     }
 

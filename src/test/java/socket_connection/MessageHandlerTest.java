@@ -3,17 +3,13 @@ package socket_connection;
 import com.google.gson.Gson;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import socket_connection.socket_exceptions.runtime_exceptions.BadSetupException;
 import socket_connection.socket_exceptions.runtime_exceptions.UndefinedInputTypeException;
-import socket_connection.socket_exceptions.exceptions.UnreachableHostException;
+import socket_connection.socket_exceptions.runtime_exceptions.socket_connection_events.ConnectionEventException;
 import socket_connection.socket_exceptions.runtime_exceptions.socket_connection_events.DataReceivedException;
 import socket_connection.tools.ConfigurationHandler;
 
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -139,7 +135,7 @@ class MessageHandlerTest {
      * with compute input
      */
     @Test
-    void computeInputWithDefaultComputedDataType() throws UnreachableHostException {
+    void computeInputWithDefaultComputedDataType() {
         String message="Random message";
         String computedMessage=messageHandler.computeOutput(message);
         //check that the expected exception is thrown
@@ -184,7 +180,7 @@ class MessageHandlerTest {
         messagesToTest.add(messageHandler.getHelloMessage());
         messagesToTest.add(messageHandler.getServerIsReadyMessage());
         messagesToTest.forEach(message->assertFalse(messageHandler.getInputIsDataType().test(message)));
-        messagesToTest.forEach(message->assertNoExceptionThrown(messageHandler::computeInput,BadSetupException.class).accept(message));
+        messagesToTest.forEach(message->assertNoExceptionThrown(messageHandler::computeInput, ConnectionEventException.class).accept(message));
     }
 
     //---------------------------------------------------------------------------------------

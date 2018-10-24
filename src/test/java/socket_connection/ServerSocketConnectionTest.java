@@ -510,7 +510,7 @@ class ServerSocketConnectionTest {
      * of activeConnections
      */
     @Test
-    void activeConnectionTest() throws InvocationTargetException, NoDefaultConstructorException, InstantiationException, IllegalAccessException, IOException, FailedToConnectException, UnreachableHostException {
+    void activeConnectionTest() throws InvocationTargetException, NoDefaultConstructorException, InstantiationException, IllegalAccessException, IOException, FailedToConnectException {
         ArrayList<SocketConnection> connections=new ArrayList<>();
         final int localPort=getPort();
         ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);

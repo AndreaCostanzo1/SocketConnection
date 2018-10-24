@@ -268,7 +268,7 @@ public class ServerSocketConnection extends Thread {
     public void open() throws ServerAlreadyOpenedException, ServerShutdownException {
         checkIfShutDown();
         serverStatusLock.lock();
-        if (currentStatus!=Status.CLOSED) {
+        if (currentStatus==Status.RUNNING) {
             serverStatusLock.unlock();
             throw new ServerAlreadyOpenedException();
         } else {

@@ -51,6 +51,14 @@ jobs:
           path: ~/junit
       - store_artifacts:
           path: ~/junit
+  sonarJava:
+    steps:
+      - run:
+          name: Install sonarJava
+          command:
+            curl -L https://github.com/codeclimate/codeclimate/archive/master.tar.gz | tar xvz
+            cd codeclimate-* && sudo make install
+          when: always
 
 workflows:
   version: 2
@@ -58,6 +66,9 @@ workflows:
   commit-workflow:
     jobs:
     - build
+    - sonarJava:
+        requires:
+          -build
   #scheduled workflow during weekdays at 23.00
   scheduled-workflow:
     triggers:

@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import socket_connection.socket_exceptions.runtime_exceptions.UndefinedInputTypeException;
 import socket_connection.socket_exceptions.runtime_exceptions.socket_connection_events.ConnectionEventException;
 import socket_connection.socket_exceptions.runtime_exceptions.socket_connection_events.DataReceivedException;
-import socket_connection.tools.ConfigurationHandler;
+import socket_connection.configurations.ConfigurationHandler;
 
 import java.util.HashSet;
 import java.util.Set;

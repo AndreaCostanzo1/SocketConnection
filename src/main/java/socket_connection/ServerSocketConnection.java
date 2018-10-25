@@ -3,9 +3,9 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import socket_connection.socket_exceptions.exceptions.*;
 import socket_connection.socket_exceptions.runtime_exceptions.BadSetupException;
-import socket_connection.tools.ConfigurationHandler;
+import socket_connection.configurations.ConfigurationHandler;
 import socket_connection.tools.ConnectionsHandler;
-import socket_connection.tools.ServerSocketConnectionConfigurations;
+import socket_connection.configurations.ServerSocketConnectionConfigurations;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -43,6 +43,7 @@ public class ServerSocketConnection extends Thread {
         WAITING_LAUNCH,
         /**
          * if the server isn't accepting incoming connections
+         * but it's still handling active connections
          */
         CLOSED,
         /**

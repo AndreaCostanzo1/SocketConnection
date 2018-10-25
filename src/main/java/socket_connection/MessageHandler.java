@@ -6,9 +6,9 @@ import socket_connection.socket_exceptions.runtime_exceptions.socket_connection_
 import socket_connection.socket_exceptions.runtime_exceptions.UndefinedInputTypeException;
 import socket_connection.socket_exceptions.runtime_exceptions.socket_connection_events.HelloEventException;
 import socket_connection.socket_exceptions.runtime_exceptions.socket_connection_events.ServerReadyException;
-import socket_connection.tools.ConfigurationHandler;
+import socket_connection.configurations.ConfigurationHandler;
 import socket_connection.tools.DataFormatter;
-import socket_connection.tools.MessageHandlerConfigurations;
+import socket_connection.configurations.MessageHandlerConfigurations;
 
 import java.nio.charset.Charset;
 import java.util.*;
@@ -19,7 +19,7 @@ import java.util.function.Predicate;
 class MessageHandler {
 
     private static final Map<String, Optional<DecodingFunction<MessageHandler,String>>> behavioursMap =new HashMap<>();
-    private static Charset charset;
+    private DataFormatter dataFormatter;
     private static String pingMessage;
     private static String dataMessage;
     private static String helloMessage;
@@ -59,20 +59,20 @@ class MessageHandler {
     }
 
 
-
     /**
      * public constructor of MessageHandler. This class is a singleton
      */
     MessageHandler(){
-        setup();
+        MessageHandlerConfigurations config= ConfigurationHandler.getInstance().getMessageHandlerConfigurations();
+        setupClass(config);
+        setupInstance(config);
     }
 
     /**
-     * This method is used to setup the whole class
+     * This method is used to setupClass the whole class
      */
-    private static synchronized void setup() {
+    private static synchronized void setupClass(MessageHandlerConfigurations config) {
         if(!configured){
-            MessageHandlerConfigurations config= ConfigurationHandler.getInstance().getMessageHandlerConfigurations();
             getMessages(config);
             setupBehaviour();
             configured=true;
@@ -80,7 +80,14 @@ class MessageHandler {
     }
 
     /**
-     * This method is used to setup strings used to define the type of messages
+     * This method is used to setupClass the parameters of a single instance
+     */
+    private void setupInstance(MessageHandlerConfigurations config) {
+        dataFormatter=new DataFormatter(config.getCharset());
+    }
+
+    /**
+     * This method is used to setupClass strings used to define the type of messages
      */
     private static void getMessages(MessageHandlerConfigurations config) {
         Objects.requireNonNull(config);
@@ -88,7 +95,6 @@ class MessageHandler {
         dataMessage=config.getDataMessage();
         dataTagPosition=config.getDataTagPosition();
         helloMessage=config.getHelloMessage();
-        charset=config.getCharset();
         serverIsReadyMessage=config.getServerIsReadyMessage();
     }
 
@@ -112,7 +118,7 @@ class MessageHandler {
      * @exception UndefinedInputTypeException thrown if the input isn't a data nor a defined-type message
      */
     void computeInput(String input) throws ConnectionEventException{
-        String data = DataFormatter.unBox(input,charset);
+        String data = dataFormatter.unBox(input);
         if(inputIsDataType.test(data))
             handleDataInput(data);
         else
@@ -156,7 +162,7 @@ class MessageHandler {
         StringBuilder stringBuilder= new StringBuilder();
         stringBuilder.append(string);
         stringBuilder.insert(dataTagPosition, dataMessage);
-        return DataFormatter.box(stringBuilder.toString(),charset);
+        return dataFormatter.box(stringBuilder.toString());
     }
 
     /**
@@ -168,7 +174,7 @@ class MessageHandler {
         StringBuilder stringBuilder= new StringBuilder();
         stringBuilder.append(integer);
         stringBuilder.insert(dataTagPosition, dataMessage);
-        return DataFormatter.box(stringBuilder.toString(),charset);
+        return dataFormatter.box(stringBuilder.toString());
     }
 
     /**
@@ -200,7 +206,7 @@ class MessageHandler {
      * @return pingMessage
      */
     String getPingMessage(){
-        return DataFormatter.box(pingMessage,charset);
+        return dataFormatter.box(pingMessage);
     }
 
     /**
@@ -208,7 +214,7 @@ class MessageHandler {
      * @return helloMessage
      */
     String getHelloMessage() {
-        return DataFormatter.box(helloMessage,charset);
+        return dataFormatter.box(helloMessage);
     }
 
     /**
@@ -216,14 +222,14 @@ class MessageHandler {
      * @return serverIsReadyMessage
      */
     String getServerIsReadyMessage() {
-        return DataFormatter.box(serverIsReadyMessage,charset);
+        return dataFormatter.box(serverIsReadyMessage);
     }
 
     /**
      * @return used charset
      */
     Charset getUsedCharset(){
-        return charset;
+        return dataFormatter.getCharset();
     }
 }
 

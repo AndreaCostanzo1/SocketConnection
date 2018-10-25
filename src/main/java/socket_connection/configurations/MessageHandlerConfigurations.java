@@ -1,4 +1,4 @@
-package socket_connection.tools;
+package socket_connection.configurations;
 
 import org.jetbrains.annotations.Contract;
 import java.nio.charset.Charset;

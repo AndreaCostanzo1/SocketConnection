@@ -1,4 +1,4 @@
-package socket_connection.tools;
+package socket_connection.configurations;
 
 public class SocketConnectionConfigurations {
 

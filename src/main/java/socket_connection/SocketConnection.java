@@ -1,5 +1,7 @@
 package socket_connection;
 
+import socket_connection.configurations.ConfigurationHandler;
+import socket_connection.configurations.SocketConnectionConfigurations;
 import socket_connection.socket_exceptions.exceptions.BadMessagesSequenceException;
 import socket_connection.socket_exceptions.exceptions.FailedToConnectException;
 import socket_connection.socket_exceptions.exceptions.UnreachableHostException;

@@ -58,11 +58,11 @@ workflows:
   commit-workflow:
     jobs:
     - build
-  #scheduled workflow during weekdays at 12.20
+  #scheduled workflow during weekdays at 23.00
   scheduled-workflow:
     triggers:
     - schedule:
-        cron: "30 15 * * 1-5"
+        cron: "0 23 * * *"
         filters:
           branches:
             only:

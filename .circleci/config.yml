@@ -51,12 +51,6 @@ jobs:
           path: ~/junit
       - store_artifacts:
           path: ~/junit
-      - run:
-          name: Install sonarJava
-          command:
-            curl -L https://github.com/codeclimate/codeclimate/archive/master.tar.gz | tar xvz
-            cd codeclimate-* && sudo make install
-          when: always
 
 workflows:
   version: 2

@@ -1,5 +1,5 @@
 package socket_connection.cryptography;
 
 public interface Encrypter {
-    byte[] encrypt(byte[] toEncrypt);
+    byte[] encrypt(byte[] toEncrypt) throws OperationNotPossibleException;
 }

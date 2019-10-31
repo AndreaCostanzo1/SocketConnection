@@ -24,7 +24,6 @@ try{
 ```
 
 ### Read and write a String
-To send data to the server 2 methods are available:
 ```java
 try{
     //write
@@ -37,7 +36,6 @@ try{
 }
 ```
 ### Read and write a int
-To send data to the server 2 methods are available:
 ```java
 try{
     //write
@@ -54,7 +52,7 @@ try{
 The purpose of the protocol was to hide as far as possible the logic related to the implementation of the ServerSocket, to simplify the communication between the client and the server.
 
 ### Create the communication logic
-First of all is necessary to create the class that will handle the communication between a client and the server. This class must **implement SocketUserAgentInterface** and must have a **default constructror** (with no arguments).
+First of all it is necessary to create the class that will handle the communication between a client and the server. This class must **implement SocketUserAgentInterface** and must have a **default constructror** (with no arguments).
 ```java
 //implement SockerUserAgentInterface
 class MyClass implements SocketUserAgentInterface{
@@ -117,7 +115,7 @@ class MyClass implements SocketUserAgentInterface{
 }
 ```
 
-And finally handle the communication with the client:
+And finally we're going to handle the communication with the client:
 
 ```java
 //implement SockerUserAgentInterface

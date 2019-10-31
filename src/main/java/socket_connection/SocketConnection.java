@@ -365,7 +365,7 @@ public class SocketConnection extends Thread{
      * @throws UnreachableHostException if the host is unreachable
      */
     @SuppressWarnings("WeakerAccess")
-    public void writeData(String string) throws UnreachableHostException {
+    public void writeString(String string) throws UnreachableHostException {
         waitSetUpPhaseEnd();
         checkIfShutDown();
         String toSend=messageHandler.computeOutput(string);
@@ -402,7 +402,7 @@ public class SocketConnection extends Thread{
      * @throws UnreachableHostException when connection is down
      */
     @SuppressWarnings("WeakerAccess")
-    public String readData() throws UnreachableHostException{
+    public String readString() throws UnreachableHostException{
         waitSetUpPhaseEnd();
         try {
             return synchronizedBuffer.popString();
@@ -587,6 +587,10 @@ public class SocketConnection extends Thread{
         }
     }
 
+    /**
+     * This method is used to save the public key of the remote host with
+     * which we are communicating
+     */
     private void setUpForeignPublicKey() {
         try {
             String keyEncodeBytes = socketStreamsHandler.aSyncReadUTF();

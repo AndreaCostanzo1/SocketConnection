@@ -3,6 +3,7 @@ package socket_connection.tools;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 import socket_connection.cryptography.*;
+import socket_connection.cryptography.exceptions.OperationNotPossibleException;
 import socket_connection.socket_exceptions.runtime_exceptions.UndefinedInputTypeException;
 
 import javax.crypto.NoSuchPaddingException;
@@ -35,12 +36,8 @@ public class DataFormatter {
         try {
             encrypter = new RSAEncrypter(foreignPublicKey);
             decrypter = new RSADecrypter(myPrivateKey);
-        } catch (NoSuchPaddingException e) {
-            e.printStackTrace();
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        } catch (InvalidKeyException e) {
-            e.printStackTrace();
+        } catch (NoSuchPaddingException | NoSuchAlgorithmException | InvalidKeyException e) {
+            logger.log(Level.SEVERE, "ERROR WHILE SETTING UP ENCRYPTION");
         }
     }
 
@@ -51,11 +48,11 @@ public class DataFormatter {
     public String box(String data){
         Gson gson= new Gson();
         byte[] rawData = data.getBytes(charset);
-        byte[] encryptedData = new byte[0];
+        byte[] encryptedData;
         try {
             encryptedData = encrypter!=null ? encrypter.encrypt(rawData) : rawData;
         } catch (OperationNotPossibleException e) {
-            //TODO add here some notification
+            logger.log(Level.SEVERE, "CAN'T ENCRYPT DATA");
             encryptedData=rawData;
         }
         return gson.toJson(encryptedData);
@@ -77,7 +74,7 @@ public class DataFormatter {
             try {
                 decryptedData = decrypter!=null? decrypter.decrypt(rawData) : rawData;
             } catch (OperationNotPossibleException e) {
-                //TODO add here a notification
+                logger.log(Level.SEVERE, "CAN'T DECRYPT DATA");
                 decryptedData=rawData;
             }
             //converting them into a String
@@ -87,6 +84,9 @@ public class DataFormatter {
         }
     }
 
+    /**
+     * @return the charset used by the data formatter
+     */
     public Charset getCharset() {
         return charset;
     }

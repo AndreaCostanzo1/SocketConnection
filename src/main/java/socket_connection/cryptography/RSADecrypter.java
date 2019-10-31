@@ -1,5 +1,7 @@
 package socket_connection.cryptography;
 
+import socket_connection.cryptography.exceptions.OperationNotPossibleException;
+
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;

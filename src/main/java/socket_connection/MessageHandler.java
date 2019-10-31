@@ -31,11 +31,6 @@ class MessageHandler {
     private static int dataTagPosition;
     private static Predicate<String> inputIsDataType;
 
-    void setUpEncryption(PrivateKey myPrivateKey, Key foreignPublicKey) throws NullKeyException {
-        if(myPrivateKey==null || foreignPublicKey==null) throw new NullKeyException();
-        dataFormatter.setUpEncryption(myPrivateKey,foreignPublicKey);
-    }
-
     /**
      * This class work is to handle all kind of defined-type messages that are used
      * from SocketConnection to getInstance, to check if the connection is still active and
@@ -43,6 +38,7 @@ class MessageHandler {
      *
      * CSM means ConnectionStatusMessages
      */
+    // FIXME: 24/10/2018 if no computation of the input is required, remove this class and just throw the various exceptions
     private static final class ConnectionMessagesHandler{
         private ConnectionMessagesHandler(){
             throw new AssertionError();
@@ -53,7 +49,7 @@ class MessageHandler {
          * @param handler which received the message
          */
         static void handleHelloMessage(MessageHandler handler,String input){
-            throw new HelloEventException(input); // FIXME: 24/10/2018 compute input
+            throw new HelloEventException(input);
         }
 
         /**
@@ -62,7 +58,7 @@ class MessageHandler {
          * @param handler which received the message
          */
         static void handleServerIsReadyMessage(MessageHandler handler,String input) {
-            throw new ServerReadyException(input); // FIXME: 24/10/2018 compute input
+            throw new ServerReadyException(input);
         }
 
     }
@@ -87,6 +83,18 @@ class MessageHandler {
             configured=true;
         }
     }
+
+    /**
+     * This method is used to set up encryption
+     * @param myPrivateKey contains the key that will be used to decrypt remote messages
+     * @param foreignPublicKey contains the key used to encrypt data to be sent to the remote host
+     * @throws NullKeyException if one of the keys is null
+     */
+    void setUpEncryption(PrivateKey myPrivateKey, Key foreignPublicKey) throws NullKeyException {
+        if(myPrivateKey==null || foreignPublicKey==null) throw new NullKeyException();
+        dataFormatter.setUpEncryption(myPrivateKey,foreignPublicKey);
+    }
+
 
     /**
      * This method is used to setupClass the parameters of a single instance

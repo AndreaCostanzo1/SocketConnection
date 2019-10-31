@@ -544,7 +544,7 @@ class ServerSocketConnectionTest {
      */
     private void assertIsReceived(String message,SocketConnection connection) {
         try {
-            assertEquals(message, connection.readData());
+            assertEquals(message, connection.readString());
         } catch (UnreachableHostException e) {
             fail("connection should be available");
         }
@@ -601,7 +601,7 @@ class ProperAgent implements SocketUserAgentInterface{
         synchronized (messages){
             messages.forEach(message-> {
                 try {
-                    connection.writeData(message);
+                    connection.writeString(message);
                 } catch (UnreachableHostException e) {
                     e.printStackTrace();
                 }

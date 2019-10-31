@@ -69,7 +69,7 @@ class SocketConnectionTest {
 
     //****************************************************************************************
     //
-    //                         TEST: void readData() & writeData()
+    //                         TEST: void readString() & writeString()
     //
     //****************************************************************************************
     /**
@@ -101,12 +101,12 @@ class SocketConnectionTest {
      * This test uses a server side agent that will send a message and than he will close.
      * {@link Agent2#run()}
      *
-     * It checks that the input read is equals to the expected input (sent with writeData from server)
+     * It checks that the input read is equals to the expected input (sent with writeString from server)
      */
     @Test
     void testReadAndWriteUTF() throws FailedToConnectException, UnreachableHostException {
         SocketConnection connection=new SocketConnection(InetAddress.getLoopbackAddress().getHostAddress(), PORT2);
-        assertEquals(Agent2.getMessageSent(), connection.readData());
+        assertEquals(Agent2.getMessageSent(), connection.readString());
     }
 
 
@@ -208,7 +208,7 @@ class SocketConnectionTest {
             for (int i = 0; i<NormalAgent.getCYCLES(); i++) {
                 if(Thread.currentThread().isInterrupted()) return;
                 try {
-                    connection.readData();
+                    connection.readString();
                 } catch (UnreachableHostException e) {
                     e.printStackTrace();
                 }
@@ -253,7 +253,7 @@ class NormalAgent implements SocketUserAgentInterface{
             i++;
             lock.unlock();
             try {
-                connection.writeData("Stuff");
+                connection.writeString("Stuff");
             } catch (UnreachableHostException e) {
                 shutdown();
             }
@@ -264,7 +264,7 @@ class NormalAgent implements SocketUserAgentInterface{
 
     private void sendMessages(SocketConnection connection) {
         try {
-            for (int i=0; i<CYCLES2; i++) connection.writeData("Threaded stuff");
+            for (int i=0; i<CYCLES2; i++) connection.writeString("Threaded stuff");
         } catch (UnreachableHostException e) {
             e.printStackTrace();
         }
@@ -297,7 +297,7 @@ class Agent2 implements SocketUserAgentInterface{
     @Override @SuppressWarnings("all")
     public void run() {
         try {
-            connection.writeData(MESSAGE_SENT);
+            connection.writeString(MESSAGE_SENT);
         } catch (UnreachableHostException e) {
             e.printStackTrace();
         }
@@ -331,7 +331,7 @@ class Agent3 implements SocketUserAgentInterface{
     public void run() {
         try {
             connection.writeInt(MESSAGE_SENT);
-            connection.writeData("random message");
+            connection.writeString("random message");
         } catch (UnreachableHostException e) {
             e.printStackTrace();
         }

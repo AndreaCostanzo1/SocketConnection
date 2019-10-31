@@ -59,14 +59,14 @@ workflows:
     jobs:
     - build
   #scheduled workflow during weekdays at 12.20
-  scheduled-workflow:
-    triggers:
-    - schedule:
-        cron: "30 15 * * 1-5"
-        filters:
-          branches:
-            only:
-            - master
-
-    jobs:
-    - build
+#  scheduled-workflow:
+#    triggers:
+#    - schedule:
+#        cron: "30 15 * * 1-5"
+#        filters:
+#          branches:
+#            only:
+#            - master
+#
+#    jobs:
+#    - build

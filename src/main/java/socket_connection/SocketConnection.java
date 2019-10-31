@@ -41,6 +41,7 @@ public class SocketConnection extends Thread{
     private boolean shutdown;
     private boolean active;
     private boolean ready;
+    private boolean keysOK;
     private boolean serverSide;
     private Logger logger;
     private Key foreignPublicKey;
@@ -73,6 +74,7 @@ public class SocketConnection extends Thread{
         logger= Logger.getLogger(SocketConnection.class.toString()+"%u");
         shutdown=false;
         ready=false;
+        keysOK=false;
         generateKeysForEncryption();
     }
 
@@ -179,7 +181,6 @@ public class SocketConnection extends Thread{
      */
     private void sendHelloToServer() throws IOException {
         socketStreamsHandler.writeUTF(messageHandler.getHelloMessage());
-        System.out.println("client send: "+new Gson().toJson(keyPair.getPublic().getEncoded()));
         socketStreamsHandler.writeUTF(new Gson().toJson(keyPair.getPublic().getEncoded()));
     }
 
@@ -208,8 +209,7 @@ public class SocketConnection extends Thread{
         waitForServerNotification();
         try {
             waitToBeReady();
-            socketStreamsHandler.writeUTF(messageHandler.getServerIsReadyMessage()); //FIXME
-            System.out.println("Server send: "+ new Gson().toJson(keyPair.getPublic().getEncoded()));
+            socketStreamsHandler.writeUTF(messageHandler.getServerIsReadyMessage());
             socketStreamsHandler.writeUTF(new Gson().toJson(keyPair.getPublic().getEncoded()));
         } catch (IOException e) {
             shutdown();
@@ -257,6 +257,8 @@ public class SocketConnection extends Thread{
         try {
             statusLock.lock();
             if(!shutdown) messageHandler.setUpEncryption(keyPair.getPrivate(), foreignPublicKey);
+            keysOK=true;
+            statusCondition.signalAll();
             statusLock.unlock();
         } catch (NullKeyException e) {
             logger.log(Level.SEVERE, "KEYS MUST BE NOT NULL");
@@ -510,7 +512,7 @@ public class SocketConnection extends Thread{
      */
     private void waitSetUpPhaseEnd(){
         statusLock.lock();
-        while (!ready){
+        while (!keysOK){
             try {
                 statusCondition.await();
             } catch (InterruptedException e) {
@@ -587,22 +589,15 @@ public class SocketConnection extends Thread{
 
     private void setUpForeignPublicKey() {
         try {
-            boolean validKey = false;
-            while (!validKey){
-                try{
-                    String keyEncodeBytes = socketStreamsHandler.aSyncReadUTF();
-                    System.out.println((serverSide? "server received: " : "client received: ") + keyEncodeBytes); //FIXME
-                    X509EncodedKeySpec keySpec = new X509EncodedKeySpec(new Gson().fromJson(keyEncodeBytes, byte[].class));
-                    foreignPublicKey = KeyFactory.getInstance("RSA").generatePublic(keySpec);
-                    validKey = true;
-                } catch (InvalidKeySpecException e){
-                    //TODO
-                }
-            }
+            String keyEncodeBytes = socketStreamsHandler.aSyncReadUTF();
+            X509EncodedKeySpec keySpec = new X509EncodedKeySpec(new Gson().fromJson(keyEncodeBytes, byte[].class));
+            foreignPublicKey = KeyFactory.getInstance("RSA").generatePublic(keySpec);
         } catch (IOException e1) {
-            e1.printStackTrace();
-        } catch (NoSuchAlgorithmException e1) {
-            e1.printStackTrace();
+            logger.log(Level.FINE, "Connection lost");
+            shutdown();
+        } catch (NoSuchAlgorithmException | InvalidKeySpecException e1) {
+            logger.log(Level.SEVERE, "FOREIGN KEY ISSUES!");
+            shutdown();
         }
     }
 }

@@ -29,7 +29,7 @@ class SynchronizedDataBufferTest {
             //getting FIRST_ELEMENT with reflection
             Field field= SynchronizedDataBuffer.class.getDeclaredField("FIRST_ELEMENT");
             field.setAccessible(true);
-            //proper cast to expected type
+            //cast to expected type
             Integer i= Integer.class.isInstance(field.get(buffer))?
                     Integer.class.cast(field.get(buffer)):
                     null;
@@ -81,14 +81,11 @@ class SynchronizedDataBufferTest {
                 }
             });
             thread.start();
-            await("Waiting for Waiting status of thread").atMost(200, TimeUnit.MILLISECONDS )
-                    .until(thread::getState,is(Thread.State.WAITING));
+            await("Waiting for Waiting status of thread").until(thread::getState,is(Thread.State.WAITING));
             buffer.put("Element");
-            await("Waiting for thread to become runnable again").atMost(200, TimeUnit.MILLISECONDS )
-                    .until(thread::getState,is(Thread.State.RUNNABLE));
+            await("Waiting for thread to become runnable again").until(thread::getState,is(Thread.State.RUNNABLE));
             thread.interrupt();
-            await("Waiting for thread to close properly").atMost(200, TimeUnit.MILLISECONDS )
-                    .until(thread::getState,is(Thread.State.TERMINATED)); //just to see if thread is closed properly
+            await("Waiting for thread to close properly").until(thread::getState,is(Thread.State.TERMINATED)); //just to see if thread is closed properly
         } catch (NoSuchMethodException e) {
             fail("Method not found");
         }
@@ -142,8 +139,7 @@ class SynchronizedDataBufferTest {
                     }
                 });
                 thread.start();
-                await("Waiting for Waiting status of thread").atMost(200, TimeUnit.MILLISECONDS )
-                        .until(thread::getState,is(Thread.State.WAITING));
+                await("Waiting for Waiting status of thread").until(thread::getState,is(Thread.State.WAITING));
                 buffer.closeBuffer();
                 await("Waiting for thread to close properly").
                         until(thread::getState,is(Thread.State.TERMINATED));
@@ -199,8 +195,7 @@ class SynchronizedDataBufferTest {
         SynchronizedDataBuffer buffer= new SynchronizedDataBuffer();
         Thread thread= new Thread(buffer::popString);
         thread.start();
-        await("Waiting for Waiting status of thread").atMost(200, TimeUnit.MILLISECONDS )
-                .until(thread::getState,is(Thread.State.WAITING));
+        await("Waiting for Waiting status of thread").until(thread::getState,is(Thread.State.WAITING));
     }
 
 

@@ -1,7 +1,9 @@
 package socket_connection;
 
+import com.google.gson.Gson;
 import socket_connection.configurations.ConfigurationHandler;
 import socket_connection.configurations.SocketConnectionConfigurations;
+import socket_connection.cryptography.exceptions.NullKeyException;
 import socket_connection.socket_exceptions.exceptions.BadMessagesSequenceException;
 import socket_connection.socket_exceptions.exceptions.FailedToConnectException;
 import socket_connection.socket_exceptions.exceptions.UnreachableHostException;
@@ -15,12 +17,17 @@ import socket_connection.tools.*;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.security.*;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 public class SocketConnection extends Thread{
@@ -30,10 +37,13 @@ public class SocketConnection extends Thread{
     private SynchronizedDataBuffer synchronizedBuffer;
     private SocketStreamsHandler socketStreamsHandler;
     private ConnectionTimer timer;
+    private KeyPair keyPair;
     private boolean shutdown;
     private boolean active;
     private boolean ready;
     private boolean serverSide;
+    private Logger logger;
+    private Key foreignPublicKey;
     private Lock statusLock;
     private Condition statusCondition;
     private MessageHandler messageHandler;
@@ -60,8 +70,21 @@ public class SocketConnection extends Thread{
         this.statusLock =new ReentrantLock();
         this.statusCondition=statusLock.newCondition();
         this.timer=new ConnectionTimer(this);
+        logger= Logger.getLogger(SocketConnection.class.toString()+"%u");
         shutdown=false;
         ready=false;
+        generateKeysForEncryption();
+    }
+
+    private void generateKeysForEncryption() {
+        try {
+            KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+            generator.initialize(2048);
+            keyPair = generator.generateKeyPair();
+        } catch (NoSuchAlgorithmException e) {
+            logger.log(Level.SEVERE, "CANNOT GENERATE KEYS");
+            shutdown();
+        }
     }
 
     /**
@@ -143,7 +166,7 @@ public class SocketConnection extends Thread{
     private void handleClientSideSetup() {
         try{
             sendHelloToServer();
-            waitForServerToBeReady();
+            waitToBeReady();
         }catch (IOException e){
             shutdown();
         }
@@ -156,14 +179,17 @@ public class SocketConnection extends Thread{
      */
     private void sendHelloToServer() throws IOException {
         socketStreamsHandler.writeUTF(messageHandler.getHelloMessage());
+        System.out.println("client send: "+new Gson().toJson(keyPair.getPublic().getEncoded()));
+        socketStreamsHandler.writeUTF(new Gson().toJson(keyPair.getPublic().getEncoded()));
     }
 
     /**
-     * Leave the client in a "only-receiving" mode until the
-     * hello response is received
+     * Leave:
+     *  - the server in a "only-receiving" mode until the hello message is received
+     *  - the client in a "only-receiving" mode until the hello response is received.
      * @throws IOException if the server is unreachable
      */
-    private void waitForServerToBeReady() throws IOException {
+    private void waitToBeReady() throws IOException {
         statusLock.lock();
         while (!ready){
             statusLock.unlock();
@@ -181,9 +207,10 @@ public class SocketConnection extends Thread{
     private void handleServerSideSetup() {
         waitForServerNotification();
         try {
-            String expectedHello=socketStreamsHandler.aSyncReadUTF();
-            computeRemoteInput(expectedHello);
-            socketStreamsHandler.writeUTF(messageHandler.getServerIsReadyMessage());
+            waitToBeReady();
+            socketStreamsHandler.writeUTF(messageHandler.getServerIsReadyMessage()); //FIXME
+            System.out.println("Server send: "+ new Gson().toJson(keyPair.getPublic().getEncoded()));
+            socketStreamsHandler.writeUTF(new Gson().toJson(keyPair.getPublic().getEncoded()));
         } catch (IOException e) {
             shutdown();
         }
@@ -226,6 +253,15 @@ public class SocketConnection extends Thread{
      * stream received from the remote host.
      */
     private void handleSession() {
+        //set up encryption
+        try {
+            statusLock.lock();
+            if(!shutdown) messageHandler.setUpEncryption(keyPair.getPrivate(), foreignPublicKey);
+            statusLock.unlock();
+        } catch (NullKeyException e) {
+            logger.log(Level.SEVERE, "KEYS MUST BE NOT NULL");
+            shutdown();
+        }
         statusLock.lock();
         while (!shutdown){
             statusLock.unlock();
@@ -328,7 +364,7 @@ public class SocketConnection extends Thread{
      */
     @SuppressWarnings("WeakerAccess")
     public void writeData(String string) throws UnreachableHostException {
-        waitToBeReady();
+        waitSetUpPhaseEnd();
         checkIfShutDown();
         String toSend=messageHandler.computeOutput(string);
         sendData(toSend);
@@ -353,7 +389,7 @@ public class SocketConnection extends Thread{
      */
     @SuppressWarnings("WeakerAccess")
     public void writeInt(int number) throws UnreachableHostException {
-        waitToBeReady();
+        waitSetUpPhaseEnd();
         checkIfShutDown();
         String toSend= messageHandler.computeOutput(number);
         sendData(toSend);
@@ -365,7 +401,7 @@ public class SocketConnection extends Thread{
      */
     @SuppressWarnings("WeakerAccess")
     public String readData() throws UnreachableHostException{
-        waitToBeReady();
+        waitSetUpPhaseEnd();
         try {
             return synchronizedBuffer.popString();
         } catch (ShutDownException e){
@@ -381,7 +417,7 @@ public class SocketConnection extends Thread{
      */
     @SuppressWarnings("WeakerAccess")
     public int readInt() throws UnreachableHostException, BadMessagesSequenceException {
-        waitToBeReady();
+        waitSetUpPhaseEnd();
         try {
             return synchronizedBuffer.popInt();
         } catch (ShutDownException e){
@@ -419,7 +455,7 @@ public class SocketConnection extends Thread{
      */
     @SuppressWarnings("WeakerAccess")
     public long getPing() throws UnreachableHostException {
-        waitToBeReady();
+        waitSetUpPhaseEnd();
         checkIfShutDown();
         InetAddress ip= socket.getInetAddress();
         long currentTime=System.currentTimeMillis();
@@ -472,7 +508,7 @@ public class SocketConnection extends Thread{
     /**
      * This method is used to wait the end of the getInstance phase
      */
-    private void waitToBeReady(){
+    private void waitSetUpPhaseEnd(){
         statusLock.lock();
         while (!ready){
             try {
@@ -523,6 +559,7 @@ public class SocketConnection extends Thread{
         private static void handleServerIsReadyMessage(SocketConnection connection, ConnectionEventException e){
             if(connection.isServerSide()|| connection.isReady()) throw new BadSetupException();
             connection.setToReady();
+            connection.setUpForeignPublicKey();
         }
 
         /**
@@ -544,6 +581,28 @@ public class SocketConnection extends Thread{
         private static void handleHelloMessage(SocketConnection connection, ConnectionEventException e) {
             if(!connection.isServerSide()|| connection.isReady()) throw new BadSetupException();
             connection.setToReady();
+            connection.setUpForeignPublicKey();
+        }
+    }
+
+    private void setUpForeignPublicKey() {
+        try {
+            boolean validKey = false;
+            while (!validKey){
+                try{
+                    String keyEncodeBytes = socketStreamsHandler.aSyncReadUTF();
+                    System.out.println((serverSide? "server received: " : "client received: ") + keyEncodeBytes); //FIXME
+                    X509EncodedKeySpec keySpec = new X509EncodedKeySpec(new Gson().fromJson(keyEncodeBytes, byte[].class));
+                    foreignPublicKey = KeyFactory.getInstance("RSA").generatePublic(keySpec);
+                    validKey = true;
+                } catch (InvalidKeySpecException e){
+                    //TODO
+                }
+            }
+        } catch (IOException e1) {
+            e1.printStackTrace();
+        } catch (NoSuchAlgorithmException e1) {
+            e1.printStackTrace();
         }
     }
 }

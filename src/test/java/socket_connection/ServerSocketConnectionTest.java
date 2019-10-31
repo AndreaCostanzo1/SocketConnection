@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ServerSocketConnectionTest {
 
-    private static int port=11000;
+    private static int port=14000;
     private static Lock lock=new ReentrantLock();
     private static Lock listLock=new ReentrantLock();
     private static List<ServerSocketConnection> servers=new ArrayList<>();
@@ -86,8 +86,7 @@ class ServerSocketConnectionTest {
         final int localPort=getPort();
         ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class,false);
         addServerToList(server);
-        await("Avoid eventual time wait").atMost(200, TimeUnit.MILLISECONDS )
-                .untilAsserted(()->assertEquals(server.getState(),Thread.State.RUNNABLE));
+        await("Avoid eventual time wait").untilAsserted(()->assertEquals(server.getState(),Thread.State.RUNNABLE));
     }
 
     /**
@@ -200,7 +199,6 @@ class ServerSocketConnectionTest {
         //check all connections are opened
         openedConnections.forEach(connection ->
                 await("Waiting for connection to be ready")
-                        .atMost(300, TimeUnit.MILLISECONDS)
                         .until(connection::isReady, is(true)));
 
         //Now server is shut down.
@@ -231,12 +229,10 @@ class ServerSocketConnectionTest {
     void portNotBindAfterShutDown() throws InvocationTargetException, NoDefaultConstructorException, InstantiationException, IllegalAccessException, IOException, ServerShutdownException {
         final int localPort=getPort();
         final ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
-        await("Avoid eventual time waiting due to delay").atMost(200, TimeUnit.MILLISECONDS )
-                .untilAsserted(()->assertEquals(Thread.State.RUNNABLE,server.getState()));
+        await("Avoid eventual time waiting due to delay").untilAsserted(()->assertEquals(Thread.State.RUNNABLE,server.getState()));
         //now server is shut down.
         server.shutdown();
-        await("Waiting for thread to shut down properly").atMost(200, TimeUnit.MILLISECONDS )
-                .untilAsserted(()->assertEquals(Thread.State.TERMINATED,server.getState()));
+        await("Waiting for thread to shut down properly").untilAsserted(()->assertEquals(Thread.State.TERMINATED,server.getState()));
         //try to open a new server on the same port
         final ServerSocketConnection server2= new ServerSocketConnection(localPort, ProperAgent.class);
         addServerToList(server2);
@@ -287,8 +283,7 @@ class ServerSocketConnectionTest {
         final int localPort=getPort();
         ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
         addServerToList(server);
-        await("Avoid eventual time waiting due to delay").atMost(200, TimeUnit.MILLISECONDS )
-                .untilAsserted(()->assertEquals(Thread.State.RUNNABLE,server.getState()));
+        await("Avoid eventual time waiting due to delay").untilAsserted(()->assertEquals(Thread.State.RUNNABLE,server.getState()));
         server.close();
         await().atMost(10,TimeUnit.MILLISECONDS);
         server.shutdown();
@@ -371,8 +366,7 @@ class ServerSocketConnectionTest {
         ServerSocketConnection server= new ServerSocketConnection(localPort, ProperAgent.class);
         //opening a connection before server.close command.
         SocketConnection connection= new SocketConnection(InetAddress.getLoopbackAddress().getHostAddress(), localPort);
-        await("Waiting for connection to be ready").atMost(200, TimeUnit.MILLISECONDS )
-                .until(connection::isReady,is(true));
+        await("Waiting for connection to be ready").until(connection::isReady,is(true));
         //closing server
         server.close();
         //check server is in a wait status
@@ -518,14 +512,12 @@ class ServerSocketConnectionTest {
         //test available connections after each connection
         for (int i=0; i< 1;i++){
             connections.add(new SocketConnection(InetAddress.getLoopbackAddress().getHostAddress(),localPort));
-            await().atMost(500,TimeUnit.MILLISECONDS )
-                    .until(server::activeConnections,is(i+1));
+            await().until(server::activeConnections,is(i+1));
         }
         //test available connections after each disconnection
         for (int i=0; i< connections.size();i++){
             connections.get(i).shutdown();
-            await().atMost(500,TimeUnit.MILLISECONDS )
-                    .until(server::activeConnections,is(connections.size()-i));
+            await().until(server::activeConnections,is(connections.size()-i));
         }
 
     }

@@ -1,6 +1,7 @@
 package socket_connection;
 
 
+import socket_connection.cryptography.exceptions.NullKeyException;
 import socket_connection.socket_exceptions.runtime_exceptions.socket_connection_events.ConnectionEventException;
 import socket_connection.socket_exceptions.runtime_exceptions.socket_connection_events.DataReceivedException;
 import socket_connection.socket_exceptions.runtime_exceptions.UndefinedInputTypeException;
@@ -11,6 +12,8 @@ import socket_connection.tools.DataFormatter;
 import socket_connection.configurations.MessageHandlerConfigurations;
 
 import java.nio.charset.Charset;
+import java.security.Key;
+import java.security.PrivateKey;
 import java.util.*;
 import java.util.function.Predicate;
 
@@ -27,6 +30,12 @@ class MessageHandler {
     private static boolean configured=false;
     private static int dataTagPosition;
     private static Predicate<String> inputIsDataType;
+
+    void setUpEncryption(PrivateKey myPrivateKey, Key foreignPublicKey) throws NullKeyException {
+        if(myPrivateKey==null || foreignPublicKey==null) throw new NullKeyException();
+        dataFormatter.setUpEncryption(myPrivateKey,foreignPublicKey);
+    }
+
     /**
      * This class work is to handle all kind of defined-type messages that are used
      * from SocketConnection to getInstance, to check if the connection is still active and

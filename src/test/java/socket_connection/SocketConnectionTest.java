@@ -25,11 +25,13 @@ class SocketConnectionTest {
     private static ServerSocketConnection commonServer3;
     private static ServerSocketConnection commonServer4;
     private static ServerSocketConnection commonServer5;
+    private static ServerSocketConnection commonServer6;
     private static final int PORT1 =40001;
     private static final int PORT2= PORT1 +1;
     private static final int PORT3= PORT1 +2;
     private static final int PORT4 = PORT1 +3;
     private static final int PORT5 = PORT1 +4;
+    private static final int PORT6 = PORT1 +5;
 
 
     /**
@@ -43,6 +45,7 @@ class SocketConnectionTest {
         commonServer3=new ServerSocketConnection(PORT3, Agent3.class);
         commonServer4=new ServerSocketConnection(PORT4, Agent4.class);
         commonServer5=new ServerSocketConnection(PORT5,Agent5.class );
+        commonServer6=new ServerSocketConnection(PORT6,Agent5.class );
         await("Await server to be ready").atMost(1000, TimeUnit.MILLISECONDS).untilAsserted(()->
         assertEquals(commonServer.getStatus(),ServerSocketConnection.Status.RUNNING));
         await("Await server to be ready").atMost(1000, TimeUnit.MILLISECONDS).untilAsserted(()->
@@ -59,6 +62,7 @@ class SocketConnectionTest {
         commonServer3.shutdown();
         commonServer4.shutdown();
         commonServer5.shutdown();
+        commonServer6.shutdown();
     }
 
 
@@ -84,10 +88,10 @@ class SocketConnectionTest {
             threads.add(new Thread(this::openConnections));
             threads.get(i).start();
         }
-        for (int i=0; i<activatedThreads;i++) {
-            final int current=i;
-            await().atMost(1000,TimeUnit.MILLISECONDS )
-                    .untilAsserted(()->assertEquals(Thread.State.TERMINATED, threads.get(current).getState()));
+        await().atLeast(4000,TimeUnit.MILLISECONDS);
+        for (int current=0; current<activatedThreads;current++) {
+            if(threads.get(current).getState()!= Thread.State.TERMINATED) threads.get(current).interrupt();
+            await().untilAsserted(()->assertEquals(Thread.State.TERMINATED, threads.get(0).getState()));
         }
 
 
@@ -139,8 +143,7 @@ class SocketConnectionTest {
     @Test
     void testIsDataAvailable() throws FailedToConnectException{
         SocketConnection connection = new SocketConnection(InetAddress.getLoopbackAddress().getHostAddress(), PORT3);
-        await().atMost(500,TimeUnit.MILLISECONDS )
-                .until(connection::isReady,is(true));
+        await().until(connection::isReady,is(true));
         await().atMost(500,TimeUnit.MILLISECONDS )
                 .untilAsserted(()->assertTrue(connection.isDataAvailable()));
     }
@@ -152,8 +155,7 @@ class SocketConnectionTest {
     @Test
     void testIsDataNotAvailable() throws FailedToConnectException{
         SocketConnection connection = new SocketConnection(InetAddress.getLoopbackAddress().getHostAddress(), PORT5);
-        await().atMost(500,TimeUnit.MILLISECONDS )
-                .until(connection::isReady,is(true));
+        await().until(connection::isReady,is(true));
         assertFalse(connection.isDataAvailable());
         //set a casual timeout before checking data are still not available
         await().atLeast(500,TimeUnit.MILLISECONDS);
@@ -183,8 +185,7 @@ class SocketConnectionTest {
     void getPingOnClosedConnectionTest() throws FailedToConnectException {
         SocketConnection connection= new SocketConnection(InetAddress.getLoopbackAddress().getHostAddress(),PORT4);
         //wait for connection to be ready
-        await().atMost(500,TimeUnit.MILLISECONDS )
-                .until(connection::isReady,is(true));
+        await().until(connection::isReady,is(true));
         //wait for connection to shutdown
         await().atMost(500,TimeUnit.MILLISECONDS )
                 .untilAsserted(()->assertFalse(connection.isConnected()));
@@ -203,8 +204,9 @@ class SocketConnectionTest {
     private void openConnections() {
         SocketConnection connection;
         try {
-            connection = new SocketConnection(InetAddress.getLoopbackAddress().getHostAddress(), PORT1);
+            connection = new SocketConnection(InetAddress.getLoopbackAddress().getHostAddress(), PORT6);
             for (int i = 0; i<NormalAgent.getCYCLES(); i++) {
+                if(Thread.currentThread().isInterrupted()) return;
                 try {
                     connection.readData();
                 } catch (UnreachableHostException e) {
@@ -214,6 +216,7 @@ class SocketConnectionTest {
         } catch (FailedToConnectException e) {
             e.printStackTrace();
         }
+
     }
 
 }

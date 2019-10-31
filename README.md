@@ -72,11 +72,11 @@ Than we have to **save the SocketConnection** created when a client connects to 
 //implement SockerUserAgentInterface
 class MyClass implements SocketUserAgentInterface{
 	
-	//Socket connection that will be used to exchange
-	//messages with the client
-	SocketConnection sck;
+    //Socket connection that will be used to exchange
+    //messages with the client
+    SocketConnection sck;
 	
-	//a default public constructor is requested!
+    //a default public constructor is requested!
     public MyClass(){  
         //....
     }
@@ -85,7 +85,7 @@ class MyClass implements SocketUserAgentInterface{
     public setConnection(SocketConnection conn){ 
         //save the socket connection
         sck= conn;
-	}
+    }
 	
 }
 ```
@@ -107,13 +107,13 @@ class MyClass implements SocketUserAgentInterface{
     @Override
     public setConnection(SocketConnection conn){
         //save the socket connection
-	    sck= conn; 
+	sck= conn; 
     }
 
     @Override
     public shutdown(){
-        //code here
-	}	
+        //code here;
+    }	
 }
 ```
 
@@ -123,22 +123,22 @@ And finally handle the communication with the client:
 //implement SockerUserAgentInterface
 class MyClass implements SocketUserAgentInterface{
 	
-	//Socket connection that will be used to exchange
-	//messages with the client
-	SocketConnection sck;
+    //Socket connection that will be used to exchange
+    //messages with the client
+    SocketConnection sck;
 	
-	//a default public constructor is requested!
+    //a default public constructor is requested!
     public MyClass(){
 	    //....
     }
     
     @Override
     public setConnection(SocketConnection conn){
-	    //save the socket connection
-	    sck= conn; 
+	//save the socket connection
+	sck= conn; 
     }
 
-	@Override
+    @Override
     public shutdown(){
         //code here
     }
@@ -146,13 +146,13 @@ class MyClass implements SocketUserAgentInterface{
     @Override
     public run(){
         //send and receive messages
-	    //THIS IS JUST AN EXAMPLE
-	    try{
-	        String helloFromClient = sck.readString();
-	        sck.writeString("Helloo! :)"); 
-	    } catch (UnreachableHostException e) {
-	        //connection lost...
-	    } 
+	//THIS IS JUST AN EXAMPLE
+	try{
+	    String helloFromClient = sck.readString();
+	    sck.writeString("Helloo! :)"); 
+	} catch (UnreachableHostException e) {
+	    //connection lost...
+	} 
     }	    
 }
 ```

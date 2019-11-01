@@ -42,6 +42,13 @@ jobs:
       # run maven tests!
       - run: mvn integration-test
 
+#      - run:
+#          name: Coverage with coberdura
+#          command: mvn cobertura:cobertura
+      # send data to codecov
+      - run:
+          name: Send coverage to codecov
+          command: bash <(curl -s https://codecov.io/bash) -t fd215bcb-f033-4e5a-b673-eb68e96921b0
       # save test result
       - run:
           name: Save test results
@@ -53,9 +60,7 @@ jobs:
           path: ~/junit
       - store_artifacts:
           path: ~/junit
-      - codecov/upload:
-          file: codecov.json
-          token: fd215bcb-f033-4e5a-b673-eb68e96921b0
+
 
 workflows:
   version: 2

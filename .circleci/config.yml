@@ -2,7 +2,9 @@
 #
 # Check https://circleci.com/docs/2.0/language-java/ for more details
 #
-version: 2
+version: 2.1
+orbs:
+  codecov: codecov/codecov@1.0.5
 jobs:
   build:
     docker:
@@ -51,6 +53,9 @@ jobs:
           path: ~/junit
       - store_artifacts:
           path: ~/junit
+      - codecov/upload:
+          file: codecov.json
+          token: fd215bcb-f033-4e5a-b673-eb68e96921b0
 
 workflows:
   version: 2

@@ -61,7 +61,7 @@ public class SocketConnection extends Thread{
     private int timeToLive;
 
     /**
-     * Package-private constructor: this is used from others constructors
+     * Private constructor: this is used from others constructors
      * to initialize some fields.
      */
     private SocketConnection(){

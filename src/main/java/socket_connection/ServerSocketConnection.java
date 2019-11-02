@@ -88,6 +88,7 @@ public class ServerSocketConnection extends Thread {
         agentClassType =userAgentClass;
         this.port=port;
         serverSocket= new ServerSocket(port);
+        //Test if the passed class has the default constructor
         try {
             agentClassType.getDeclaredConstructor().newInstance();
         } catch (NoSuchMethodException e) {

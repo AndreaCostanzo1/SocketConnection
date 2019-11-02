@@ -24,3 +24,6 @@ comment:
   layout: "reach,diff,flags,tree"
   behavior: default
   require_changes: no
+
+ignore:
+  - "src/main/java/socket_connection/cryptography/exceptions"  # ignore folders and all its contents

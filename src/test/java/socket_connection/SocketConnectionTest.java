@@ -35,7 +35,7 @@ class SocketConnectionTest {
 
 
     /**
-     * This method open a "common servers" that can be used to accept connections used
+     * This method open a "common server" that can be used to accept connections used
      * to a testing purpose
      */
     @BeforeAll

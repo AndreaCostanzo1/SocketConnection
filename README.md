@@ -1,11 +1,13 @@
 # SocketConnection
 
 [![CircleCI](https://circleci.com/gh/AndreaCostanzo1/SocketConnection/tree/master.svg?style=svg&circle-token=bcbb2f5301abb436270cf5b9c8b19b88bb4f13ea)](https://circleci.com/gh/AndreaCostanzo1/SocketConnection/tree/master)
+[![codecov](https://codecov.io/gh/AndreaCostanzo1/SocketConnection/branch/master/graph/badge.svg?token=VpTqBJobEH)](https://codecov.io/gh/AndreaCostanzo1/SocketConnection)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 ![GitHub issues](https://img.shields.io/github/issues/AndreaCostanzo1/SocketConnection)
-[![codecov](https://codecov.io/gh/AndreaCostanzo1/SocketConnection/branch/master/graph/badge.svg?token=VpTqBJobEH)](https://codecov.io/gh/AndreaCostanzo1/SocketConnection)
-A socket-based encrypted communication protocol developed for the project of Software Engineering I at Polimi.
 
+
+A socket-based encrypted communication protocol developed for the project of Software Engineering I at Polimi.
+This protocol encrypts data using the RSA algorithm with a public key of 2048 bits and keeps track of the connection status even without the need to send messages between hosts.
 
 ## Client-side
 For what concern the client-side of the application its usage is pretty similar to a regular socket.

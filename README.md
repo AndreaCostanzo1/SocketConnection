@@ -76,7 +76,7 @@ class MyClass implements SocketUserAgentInterface{
     //messages with the client
     SocketConnection sck;
 	
-    //a default public constructor is requested!
+    //a default public constructor is required!
     public MyClass(){  
         //....
     }
@@ -99,7 +99,7 @@ class MyClass implements SocketUserAgentInterface{
     //messages with the client
     SocketConnection sck;
     
-    //a default public constructor is requested!
+    //a default public constructor is required!
     public MyClass(){
         //....
     }
@@ -127,7 +127,7 @@ class MyClass implements SocketUserAgentInterface{
     //messages with the client
     SocketConnection sck;
 	
-    //a default public constructor is requested!
+    //a default public constructor is required!
     public MyClass(){
 	    //....
     }

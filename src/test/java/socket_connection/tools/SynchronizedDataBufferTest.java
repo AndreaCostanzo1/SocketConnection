@@ -198,6 +198,29 @@ class SynchronizedDataBufferTest {
         await("Waiting for Waiting status of thread").until(thread::getState,is(Thread.State.WAITING));
     }
 
+    //****************************************************************************************
+    //
+    //                         TEST: String waitForData()
+    //
+    //****************************************************************************************
+    @Test
+    void waitForDataInterrupted() {
+        Runnable runnable = () -> {
+            SynchronizedDataBuffer dataBuffer = new SynchronizedDataBuffer();
+            dataBuffer.popString();
+        };
+        Thread thread = new Thread(runnable);
+        thread.start();
+        //The thread will block waiting for data because there's no data available in the buffer
+        await().untilAsserted(()->assertEquals(Thread.State.WAITING, thread.getState()));
+        //Call interrupt
+        thread.interrupt();
+        await().untilAsserted(()->assertEquals(Thread.State.RUNNABLE, thread.getState()));
+        await().untilAsserted(()->assertTrue(thread.isInterrupted()));
+
+    }
+
+
 
     //****************************************************************************************
     //

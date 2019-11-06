@@ -7,7 +7,7 @@
 
 
 A socket-based encrypted communication protocol developed for the project of Software Engineering I at Polimi.
-This protocol encrypts data using the RSA algorithm with a public key of 2048 bits and keeps track of the connection status even without the need to send messages between hosts.
+This protocol encrypts data using the RSA algorithm with a public key of 2048 bits and keeps track of the connection status even without the need to send messages between hosts with the provided write methods.
 
 ## Client-side
 For what concern the client-side of the application its usage is pretty similar to a regular socket.

@@ -59,7 +59,7 @@ First of all it is necessary to create the class that will handle the communicat
 //implement SockerUserAgentInterface
 class MyClass implements SocketUserAgentInterface{
     
-    //a default public constructor is requested!
+    //a default public constructor is required!
     public MyClass(){
         //....
     }

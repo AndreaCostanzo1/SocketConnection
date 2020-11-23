@@ -7,9 +7,8 @@ import socket_connection.socket_exceptions.runtime_exceptions.ShutDownException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
+import java.util.Queue;
 
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.CoreMatchers.is;
@@ -19,31 +18,6 @@ import static org.junit.jupiter.api.Assertions.*;
 class SynchronizedDataBufferTest {
     //****************************************************************************************
     //
-    //                         TEST: final parameters
-    //
-    //****************************************************************************************
-    @Test
-    void firstElementTest() throws IllegalAccessException {
-        try {
-            SynchronizedDataBuffer buffer= new SynchronizedDataBuffer();
-            //getting FIRST_ELEMENT with reflection
-            Field field= SynchronizedDataBuffer.class.getDeclaredField("FIRST_ELEMENT");
-            field.setAccessible(true);
-            //cast to expected type
-            Integer i= Integer.class.isInstance(field.get(buffer))?
-                    Integer.class.cast(field.get(buffer)):
-                    null;
-            Optional<Integer> firstElementValue= Optional.ofNullable(i);
-            firstElementValue.ifPresentOrElse(value -> assertEquals(0, value.intValue()),
-                    () -> fail("Unexpected element type"));
-
-        } catch (NoSuchFieldException e) {
-            fail("The field doesn't exist. You probably need to modify this test!");
-        }
-    }
-
-    //****************************************************************************************
-    //
     //                         TEST: void put(String string)
     //
     //****************************************************************************************
@@ -51,7 +25,7 @@ class SynchronizedDataBufferTest {
     void bufferDimensionAfterPut() throws IllegalAccessException {
         SynchronizedDataBuffer buffer= new SynchronizedDataBuffer();
         //getting actual buffer
-        Optional<List> actualBuffer= getActualBuffer(buffer);
+        Optional<Queue> actualBuffer= getActualBuffer(buffer);
         //assert correct buffer dimention
         assertTrue(actualBuffer.isPresent(),"Unexpected type. You probably need to modify this test!");
         actualBuffer.ifPresent(a->assertTrue(a.isEmpty())); //still empty cause any element wasn't added.
@@ -101,7 +75,7 @@ class SynchronizedDataBufferTest {
     void popIntegerTest() throws IllegalAccessException, BadMessagesSequenceException {
         SynchronizedDataBuffer buffer= new SynchronizedDataBuffer();
         //getting actual buffer
-        Optional<List> actualBuffer= getActualBuffer(buffer);
+        Optional<Queue> actualBuffer= getActualBuffer(buffer);
         //assert correct buffer dimension
         assertTrue(actualBuffer.isPresent(),"Unexpected type. You probably need to modify this test!");
         actualBuffer.ifPresent(a->assertTrue(a.isEmpty())); //still empty cause any element wasn't added.
@@ -156,7 +130,7 @@ class SynchronizedDataBufferTest {
     void popIntegerWhenANonIntegerIsInTheFirstPosition() throws IllegalAccessException {
         SynchronizedDataBuffer buffer= new SynchronizedDataBuffer();
         //getting actual buffer
-        Optional<List> actualBuffer= getActualBuffer(buffer);
+        Optional<Queue> actualBuffer= getActualBuffer(buffer);
         //assert correct buffer dimension
         assertTrue(actualBuffer.isPresent(),"Unexpected type. You probably need to modify this test!");
         actualBuffer.ifPresent(a->assertTrue(a.isEmpty())); //still empty cause any element wasn't added.
@@ -178,7 +152,7 @@ class SynchronizedDataBufferTest {
     void popAString() throws IllegalAccessException {
         SynchronizedDataBuffer buffer= new SynchronizedDataBuffer();
         //getting actual buffer
-        Optional<List> actualBuffer= getActualBuffer(buffer);
+        Optional<Queue> actualBuffer= getActualBuffer(buffer);
         //assert correct buffer dimension
         assertTrue(actualBuffer.isPresent(),"Unexpected type. You probably need to modify this test!");
         actualBuffer.ifPresent(a->assertTrue(a.isEmpty())); //still empty cause any element wasn't added.
@@ -231,9 +205,9 @@ class SynchronizedDataBufferTest {
     void getSizeTest() throws IllegalAccessException {
         SynchronizedDataBuffer buffer= new SynchronizedDataBuffer();
         //getting actual buffer
-        Optional<List> actualBuffer= getActualBuffer(buffer);
+        Optional<Queue> actualBuffer= getActualBuffer(buffer);
         //assert correct buffer dimension
-        assertTrue(actualBuffer.isPresent(),"Unexpected type. You probably need to modify this test!");
+        assertTrue(actualBuffer.isPresent(),"Unexpected type: have you changed buffer type recently?. You probably need to modify this test!");
         assertEquals(0, buffer.size());
         //insert element and check dimension
         buffer.put("Elemento");
@@ -254,7 +228,7 @@ class SynchronizedDataBufferTest {
     //
     //---------------------------------------------------------------------------------------
     @SuppressWarnings("all")
-    private Optional<List> getActualBuffer(SynchronizedDataBuffer buffer) throws IllegalAccessException {
+    private Optional<Queue> getActualBuffer(SynchronizedDataBuffer buffer) throws IllegalAccessException {
         Field field=null;
         try {
             //getting buffer with reflection
@@ -263,11 +237,11 @@ class SynchronizedDataBufferTest {
         } catch (NoSuchFieldException e) {
             fail("The field doesn't exist. You probably need to modify this test!");
         }
-        //operation to cast buffer to a List
+        //operation to cast buffer to a Queue
         Optional<Object> notNullBuffer=Optional.ofNullable(field.get(buffer));
         assertTrue(notNullBuffer.isPresent(),"Buffer not initialized!");
-        return List.class.isInstance(notNullBuffer.get())?
-                Optional.ofNullable(List.class.cast(notNullBuffer.get()))
+        return Queue.class.isInstance(notNullBuffer.get())?
+                Optional.ofNullable(Queue.class.cast(notNullBuffer.get()))
                 :Optional.ofNullable(null);
     }
 }

@@ -10,10 +10,6 @@ import socket_connection.configurations.SocketConnectionConfigurations;
 import socket_connection.socket_exceptions.exceptions.BadMessagesSequenceException;
 
 import java.io.*;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Modifier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * This class contains minor tests
  */
-public class MinorTests {
+class MinorTests {
 
     private static final String ABSOLUTE_PATH = ConfigurationHandler.class.getProtectionDomain().getCodeSource().getLocation().getPath();
     private static final String MESSAGE_HANDLER_CONFIGURATIONS_PATH = ABSOLUTE_PATH +"MessageHandlerConfigurations.json";

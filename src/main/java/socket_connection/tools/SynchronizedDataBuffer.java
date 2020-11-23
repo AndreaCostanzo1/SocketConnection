@@ -5,22 +5,25 @@ import socket_connection.socket_exceptions.runtime_exceptions.ShutDownException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.PriorityQueue;
+import java.util.Queue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class SynchronizedDataBuffer {
-    private List<String> buffer;
+    private final Queue<String> buffer;
     private boolean connectionDown;
-    private Lock lock;
-    private Condition condition;
-    private static final int FIRST_ELEMENT=0;
+    private final Lock lock;
+    private final Condition condition;
 
     /**
      * Constructor of SynchronizedDataBuffer.
      */
     public SynchronizedDataBuffer(){
-        buffer=new ArrayList<>();
+        buffer=new PriorityQueue<>();
         lock= new ReentrantLock();
         connectionDown=false;
         condition=lock.newCondition();
@@ -32,7 +35,7 @@ public class SynchronizedDataBuffer {
      */
     public void put(String string){
         lock.lock();
-        buffer.add(string);
+        buffer.offer(string);
         condition.signal();
         lock.unlock();
     }
@@ -100,7 +103,7 @@ public class SynchronizedDataBuffer {
      */
     private String popFirstElem() {
         lock.lock();
-        String firstElement=buffer.get(FIRST_ELEMENT);
+        String firstElement=buffer.peek();
         lock.unlock();
         return firstElement;
     }
@@ -110,7 +113,7 @@ public class SynchronizedDataBuffer {
      */
     private void removeFirstElem(){
         lock.lock();
-        buffer.remove(FIRST_ELEMENT);
+        buffer.poll();
         lock.unlock();
     }
 

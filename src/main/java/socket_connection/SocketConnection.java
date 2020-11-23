@@ -34,20 +34,20 @@ public class SocketConnection extends Thread{
 
     private Socket socket;
     private ServerSocketConnection handlingServer;
-    private SynchronizedDataBuffer synchronizedBuffer;
+    private final SynchronizedDataBuffer synchronizedBuffer;
     private SocketStreamsHandler socketStreamsHandler;
-    private ConnectionTimer timer;
+    private final ConnectionTimer timer;
     private KeyPair keyPair;
     private boolean shutdown;
     private boolean active;
     private boolean ready;
     private boolean keysOK;
     private boolean serverSide;
-    private Logger logger;
+    private final Logger logger;
     private Key foreignPublicKey;
-    private Lock statusLock;
-    private Condition statusCondition;
-    private MessageHandler messageHandler;
+    private final Lock statusLock;
+    private final Condition statusCondition;
+    private final MessageHandler messageHandler;
     private static Map<Class<? extends ConnectionEventException>, eventComputer<SocketConnection,ConnectionEventException>> eventAdministrator=
             new HashMap<>();
     static {

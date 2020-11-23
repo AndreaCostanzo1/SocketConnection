@@ -12,8 +12,8 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class ConnectionsHandler {
 
-    private Lock availableConnectionsLock;
-    private HashMap<SocketConnection,SocketUserAgentInterface> availableConnections;
+    private final Lock availableConnectionsLock;
+    private final HashMap<SocketConnection,SocketUserAgentInterface> availableConnections;
     private int activeConnections;
 
     /**

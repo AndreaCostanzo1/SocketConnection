@@ -12,7 +12,7 @@ import java.security.NoSuchAlgorithmException;
 
 public class RSADecrypter implements Decrypter {
 
-    private Cipher cipher;
+    private final Cipher cipher;
 
     public RSADecrypter(Key privateKey) throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException {
         cipher= Cipher.getInstance("RSA/ECB/PKCS1Padding");

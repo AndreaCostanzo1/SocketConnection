@@ -7,12 +7,20 @@ import socket_connection.configurations.ConfigurationHandler;
 import socket_connection.configurations.MessageHandlerConfigurations;
 import socket_connection.configurations.ServerSocketConnectionConfigurations;
 import socket_connection.configurations.SocketConnectionConfigurations;
+import socket_connection.cryptography.Decrypter;
+import socket_connection.cryptography.RSADecrypter;
+import socket_connection.cryptography.exceptions.OperationNotPossibleException;
 import socket_connection.socket_exceptions.exceptions.BadMessagesSequenceException;
+import socket_connection.socket_exceptions.runtime_exceptions.BadSetupException;
 
+import javax.crypto.NoSuchPaddingException;
 import java.io.*;
+import java.security.InvalidKeyException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * This class contains minor tests
@@ -77,4 +85,42 @@ class MinorTests {
             assertTrue(handler.isRunningDefaultMHConfigurations());
         }
     }
+
+    /**
+     * Test that rsa decrypter don't work with not encrypted data
+     */
+    @Test
+    void rsaDecrypterWithNotEncryptedInput() throws NoSuchAlgorithmException, InvalidKeyException, NoSuchPaddingException {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        KeyPair keyPair = generator.generateKeyPair();
+        Decrypter decrypter = new RSADecrypter(keyPair.getPublic());
+        byte[] notEncryptedArray=new byte[1];
+        notEncryptedArray[0]=1;
+        assertThrows(OperationNotPossibleException.class, () -> decrypter.decrypt(notEncryptedArray));
+    }
+
+    /**
+     * Test BadMessagesSequenceException getter
+     */
+    @Test
+    void badMessagesSequenceExceptionGetter(){
+        String message= "message";
+        BadMessagesSequenceException exception = new BadMessagesSequenceException(message);
+        assertEquals(message,exception.getMessage());
+    }
+
+    /**
+     * Other coverage tests
+     */
+    @Test
+    void others(){
+        RuntimeException exception= new BadSetupException();
+        try{
+            throw exception;
+        }catch (RuntimeException e){
+            //ignore
+        }
+    }
 }
+

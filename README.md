@@ -1,4 +1,4 @@
-# SocketConnection
+# SocketConnection :email:
 
 [![CircleCI](https://circleci.com/gh/AndreaCostanzo1/SocketConnection/tree/master.svg?style=svg)](https://circleci.com/gh/AndreaCostanzo1/SocketConnection/tree/master)
 [![codecov](https://codecov.io/gh/AndreaCostanzo1/SocketConnection/branch/master/graph/badge.svg?token=VpTqBJobEH)](https://codecov.io/gh/AndreaCostanzo1/SocketConnection)
@@ -6,10 +6,10 @@
 ![GitHub issues](https://img.shields.io/github/issues/AndreaCostanzo1/SocketConnection)
 
 
-A socket-based encrypted communication protocol developed for the project of Software Engineering I at Polimi.
+A socket-based encrypted:closed_lock_with_key: communication protocol developed for the project of Software Engineering I at Polimi.
 This protocol encrypts data using the RSA algorithm with a public key of 2048 bits and keeps track of the connection status even without the need to send messages between hosts with the provided write methods.
 
-## Client-side
+## Client-side :computer:
 For what concern the client-side of the application its usage is pretty similar to a regular socket.
 ### Setup
 The connection is set up by giving the **IP address** and the  **port** on which we are supposed to reach the server. If the server is unreachable, the constructor will throw a **FailedToConnectException**.
@@ -50,7 +50,7 @@ try{
 }
 ```
 
-## Server-side
+## Server-side :satellite:
 The purpose of the protocol was to hide as far as possible the logic related to the implementation of the ServerSocket, to simplify the communication between the client and the server.
 
 ### Create the communication logic

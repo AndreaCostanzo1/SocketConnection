@@ -6,7 +6,7 @@
 ![GitHub issues](https://img.shields.io/github/issues/AndreaCostanzo1/SocketConnection)
 
 
-A socket-based encrypted:closed_lock_with_key: communication protocol developed to develop the communication logic in the project of Software Engineering I at Polimi.
+A socket-based encrypted:closed_lock_with_key: communication protocol developed to handle the communication logic in the project of Software Engineering I at Polimi.
 This protocol encrypts data using the RSA algorithm with key lenghts of 2048 bits and keeps track of the connection status even without the need to send messages between hosts with the provided write methods.
 
 ## Client-side :computer:

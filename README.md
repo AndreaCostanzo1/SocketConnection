@@ -54,7 +54,7 @@ try{
 The purpose of the protocol was to hide as far as possible the logic related to the implementation of the ServerSocket, to simplify the communication between the client and the server.
 
 ### Create the communication logic
-First of all it is necessary to create the class that will handle the communication between a client and the server. This class must **implement SocketUserAgentInterface** and must have a **default constructror** (with no arguments).
+First of all it is necessary to create the class that will handle each single connection client-server from server side. This class must **implement SocketUserAgentInterface** and must have a **default constructror** (with no arguments).
 ```java
 //implement SockerUserAgentInterface
 class MyClass implements SocketUserAgentInterface{
